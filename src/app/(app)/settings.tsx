@@ -4,13 +4,13 @@ import { ActivityIndicator, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppearanceSettings } from '@/components/appearance-settings';
-import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
 import { TagPicker } from '@/components/tag-picker';
 import { ThemedButton } from '@/components/themed-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedTextInput } from '@/components/themed-text-input';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { redeemAdminInvite } from '@/lib/admin';
 import { useSession } from '@/lib/auth-context';
 import { updateDisplayName } from '@/lib/profile';
 import { fetchMyPreferredTagIds, fetchTags, setMyPreferredTagIds, type Tag } from '@/lib/tags';
@@ -29,6 +29,28 @@ export default function SettingsScreen() {
   const [preferencesSaved, setPreferencesSaved] = useState(false);
   const [preferencesError, setPreferencesError] = useState<string | null>(null);
   const [isPickingColor, setIsPickingColor] = useState(false);
+
+  const [inviteCode, setInviteCode] = useState('');
+  const [isRedeeming, setIsRedeeming] = useState(false);
+  const [redeemError, setRedeemError] = useState<string | null>(null);
+
+  async function handleRedeem() {
+    if (!inviteCode.trim()) {
+      setRedeemError('Enter an invite code.');
+      return;
+    }
+    setRedeemError(null);
+    setIsRedeeming(true);
+    try {
+      await redeemAdminInvite(inviteCode);
+      setInviteCode('');
+      await refreshProfile();
+    } catch (err) {
+      setRedeemError(err instanceof Error ? err.message : 'Could not redeem this code.');
+    } finally {
+      setIsRedeeming(false);
+    }
+  }
 
   const loadPreferences = useCallback(async () => {
     if (!session) return;
@@ -87,70 +109,94 @@ export default function SettingsScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <DismissKeyboardView>
-          <ScrollView contentContainerStyle={styles.scrollContent} scrollEnabled={!isPickingColor}>
-            <ThemedView style={styles.headerRow}>
-              <ThemedText type="subtitle">Settings</ThemedText>
-              <ThemedButton label="Close" variant="secondary" onPress={() => router.back()} />
-            </ThemedView>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          scrollEnabled={!isPickingColor}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag">
+          <ThemedView style={styles.headerRow}>
+            <ThemedText type="subtitle">Settings</ThemedText>
+            <ThemedButton label="Close" variant="secondary" onPress={() => router.back()} />
+          </ThemedView>
 
-            <ThemedView style={styles.fields}>
-              <ThemedText type="smallBold">Display name</ThemedText>
-              <ThemedTextInput
-                placeholder="Display name"
-                value={displayName}
-                onChangeText={setDisplayName}
-                autoCapitalize="words"
-              />
-              {error && (
-                <ThemedText themeColor="danger" type="small">
-                  {error}
-                </ThemedText>
-              )}
-              {saved && !error && (
-                <ThemedText themeColor="tint" type="small">
-                  Saved.
-                </ThemedText>
-              )}
-              <ThemedButton label="Save" onPress={handleSave} loading={isSaving} disabled={isSaving} />
-            </ThemedView>
-
-            <ThemedView style={styles.fields}>
-              <ThemedText type="smallBold">Preferred amenities</ThemedText>
-              <ThemedText themeColor="textSecondary" type="small">
-                Used by the preference filter on the Explore map to surface locations that match what
-                you&apos;re looking for.
+          <ThemedView style={styles.fields}>
+            <ThemedText type="smallBold">Display name</ThemedText>
+            <ThemedTextInput
+              placeholder="Display name"
+              value={displayName}
+              onChangeText={setDisplayName}
+              autoCapitalize="words"
+            />
+            {error && (
+              <ThemedText themeColor="danger" type="small">
+                {error}
               </ThemedText>
+            )}
+            {saved && !error && (
+              <ThemedText themeColor="tint" type="small">
+                Saved.
+              </ThemedText>
+            )}
+            <ThemedButton label="Save" onPress={handleSave} loading={isSaving} disabled={isSaving} />
+          </ThemedView>
 
-              {isLoadingTags && <ActivityIndicator style={styles.loading} />}
+          <ThemedView style={styles.fields}>
+            <ThemedText type="smallBold">Preferred amenities</ThemedText>
+            <ThemedText themeColor="textSecondary" type="small">
+              Used by the preference filter on the Explore map to surface locations that match what
+              you&apos;re looking for.
+            </ThemedText>
 
-              {!isLoadingTags && <TagPicker tags={tags} selectedTagIds={preferredTagIds} onToggle={togglePreferredTag} />}
+            {isLoadingTags && <ActivityIndicator style={styles.loading} />}
 
-              {preferencesError && (
+            {!isLoadingTags && <TagPicker tags={tags} selectedTagIds={preferredTagIds} onToggle={togglePreferredTag} />}
+
+            {preferencesError && (
+              <ThemedText themeColor="danger" type="small">
+                {preferencesError}
+              </ThemedText>
+            )}
+            {preferencesSaved && !preferencesError && (
+              <ThemedText themeColor="tint" type="small">
+                Saved.
+              </ThemedText>
+            )}
+            <ThemedButton
+              label="Save preferences"
+              onPress={handleSavePreferences}
+              loading={isSavingPreferences}
+              disabled={isSavingPreferences || isLoadingTags}
+            />
+          </ThemedView>
+
+          <AppearanceSettings onPickingChange={setIsPickingColor} />
+
+          {profile?.role !== 'admin' && (
+            <ThemedView style={styles.fields}>
+              <ThemedText type="smallBold">Admin invite</ThemedText>
+              <ThemedText themeColor="textSecondary" type="small">
+                If an admin gave you an invite code, enter it here to get admin access.
+              </ThemedText>
+              <ThemedTextInput placeholder="Invite code" value={inviteCode} onChangeText={setInviteCode} />
+              {redeemError && (
                 <ThemedText themeColor="danger" type="small">
-                  {preferencesError}
-                </ThemedText>
-              )}
-              {preferencesSaved && !preferencesError && (
-                <ThemedText themeColor="tint" type="small">
-                  Saved.
+                  {redeemError}
                 </ThemedText>
               )}
               <ThemedButton
-                label="Save preferences"
-                onPress={handleSavePreferences}
-                loading={isSavingPreferences}
-                disabled={isSavingPreferences || isLoadingTags}
+                label="Redeem"
+                variant="secondary"
+                onPress={handleRedeem}
+                loading={isRedeeming}
+                disabled={isRedeeming}
               />
             </ThemedView>
+          )}
 
-            <AppearanceSettings onPickingChange={setIsPickingColor} />
-
-            <ThemedText themeColor="textSecondary" type="small" style={styles.note}>
-              More settings (account options) are coming in a later phase.
-            </ThemedText>
-          </ScrollView>
-        </DismissKeyboardView>
+          <ThemedText themeColor="textSecondary" type="small" style={styles.note}>
+            More settings (account options) are coming in a later phase.
+          </ThemedText>
+        </ScrollView>
       </SafeAreaView>
     </ThemedView>
   );

@@ -51,6 +51,7 @@ export function ThemedButton({
 const styles = StyleSheet.create({
   button: {
     paddingVertical: Spacing.three,
+    paddingHorizontal: Spacing.three,
     borderRadius: Spacing.two,
     alignItems: 'center',
     justifyContent: 'center',

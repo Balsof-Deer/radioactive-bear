@@ -3,7 +3,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
 import { ThemedButton } from '@/components/themed-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedTextInput } from '@/components/themed-text-input';
@@ -32,6 +31,8 @@ export default function ManageTagsScreen() {
   }, []);
 
   useEffect(() => {
+    // Standard fetch-on-mount; `load` is also the manual refresh after
+    // adding or deleting a tag.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load]);
@@ -71,44 +72,45 @@ export default function ManageTagsScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <DismissKeyboardView>
-          <ScrollView contentContainerStyle={styles.scrollContent}>
-            <ThemedView style={styles.headerRow}>
-              <ThemedText type="subtitle">Manage tags</ThemedText>
-              <ThemedButton label="Back" variant="secondary" onPress={() => router.back()} />
-            </ThemedView>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag">
+          <ThemedView style={styles.headerRow}>
+            <ThemedText type="subtitle">Manage tags</ThemedText>
+            <ThemedButton label="Back" variant="secondary" onPress={() => router.back()} />
+          </ThemedView>
 
-            <ThemedView style={styles.addRow}>
-              <ThemedTextInput
-                placeholder="New tag name"
-                value={newLabel}
-                onChangeText={setNewLabel}
-                style={styles.addInput}
-              />
-              <ThemedButton label="Add" onPress={handleAdd} loading={isSaving} disabled={isSaving} />
-            </ThemedView>
-            {formError && (
-              <ThemedText themeColor="danger" type="small">
-                {formError}
-              </ThemedText>
-            )}
+          <ThemedView style={styles.addRow}>
+            <ThemedTextInput
+              placeholder="New tag name"
+              value={newLabel}
+              onChangeText={setNewLabel}
+              style={styles.addInput}
+            />
+            <ThemedButton label="Add" onPress={handleAdd} loading={isSaving} disabled={isSaving} />
+          </ThemedView>
+          {formError && (
+            <ThemedText themeColor="danger" type="small">
+              {formError}
+            </ThemedText>
+          )}
 
-            {isLoading && <ActivityIndicator style={styles.loading} />}
-            {loadError && (
-              <ThemedText themeColor="danger" type="small">
-                {loadError}
-              </ThemedText>
-            )}
+          {isLoading && <ActivityIndicator style={styles.loading} />}
+          {loadError && (
+            <ThemedText themeColor="danger" type="small">
+              {loadError}
+            </ThemedText>
+          )}
 
-            {!isLoading &&
-              tags.map((tag) => (
-                <ThemedView key={tag.id} type="backgroundElement" style={styles.tagRow}>
-                  <ThemedText>{tag.label}</ThemedText>
-                  <ThemedButton label="Delete" variant="secondary" onPress={() => confirmDelete(tag)} />
-                </ThemedView>
-              ))}
-          </ScrollView>
-        </DismissKeyboardView>
+          {!isLoading &&
+            tags.map((tag) => (
+              <ThemedView key={tag.id} type="backgroundElement" style={styles.tagRow}>
+                <ThemedText>{tag.label}</ThemedText>
+                <ThemedButton label="Delete" variant="secondary" onPress={() => confirmDelete(tag)} />
+              </ThemedView>
+            ))}
+        </ScrollView>
       </SafeAreaView>
     </ThemedView>
   );

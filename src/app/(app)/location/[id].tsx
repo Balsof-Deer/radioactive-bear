@@ -2,10 +2,9 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
 import { ReviewForm } from '@/components/review-form';
 import { StarRating } from '@/components/star-rating';
 import { TagPicker } from '@/components/tag-picker';
@@ -33,6 +32,7 @@ import {
   type ReviewFormValues,
   type ReviewWithRatings,
 } from '@/lib/reviews';
+import { deleteLocation } from '@/lib/admin';
 import { getLocationPhotoUrl, uploadLocationPhoto } from '@/lib/storage';
 import { fetchLocationTagIds, fetchTags, setLocationTags, type Tag } from '@/lib/tags';
 
@@ -65,6 +65,7 @@ export default function LocationDetailScreen() {
   const [locationEditError, setLocationEditError] = useState<string | null>(null);
   const [isAddingPhotos, setIsAddingPhotos] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -207,6 +208,30 @@ export default function LocationDetailScreen() {
     }
   }
 
+  function confirmDeleteLocation() {
+    if (!location) return;
+    Alert.alert(
+      'Delete location?',
+      `"${location.name}" and all of its reviews and photos will be permanently removed.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleteError(null);
+            try {
+              await deleteLocation(id);
+              router.back();
+            } catch (err) {
+              setDeleteError(err instanceof Error ? err.message : 'Could not delete this location.');
+            }
+          },
+        },
+      ]
+    );
+  }
+
   function confirmDelete(review: ReviewWithRatings) {
     Alert.alert('Delete review?', 'This cannot be undone.', [
       { text: 'Cancel', style: 'cancel' },
@@ -247,8 +272,12 @@ export default function LocationDetailScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-          <DismissKeyboardView>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag">
+          <View style={styles.content}>
           <ThemedView style={styles.backButtonWrapper}>
             <ThemedButton label="Back" variant="secondary" onPress={() => router.back()} />
           </ThemedView>
@@ -261,6 +290,11 @@ export default function LocationDetailScreen() {
               <ThemedText themeColor={LOCATION_STATUS_COLOR[location.status]} type="small">
                 {LOCATION_STATUS_LABEL[location.status]}
               </ThemedText>
+              {location.status === 'rejected' && location.admin_rejection_reason && (
+                <ThemedText themeColor="danger" type="small">
+                  Reason: {location.admin_rejection_reason}
+                </ThemedText>
+              )}
               {location.address && <ThemedText themeColor="textSecondary">{location.address}</ThemedText>}
               {location.description && <ThemedText>{location.description}</ThemedText>}
               {locationTagIds.length > 0 && (
@@ -281,6 +315,19 @@ export default function LocationDetailScreen() {
                   onPress={openEditLocation}
                   style={styles.editLocationButton}
                 />
+              )}
+              {isAdmin && (
+                <ThemedButton
+                  label="Delete location"
+                  variant="secondary"
+                  onPress={confirmDeleteLocation}
+                  style={styles.editLocationButton}
+                />
+              )}
+              {deleteError && (
+                <ThemedText themeColor="danger" type="small">
+                  {deleteError}
+                </ThemedText>
               )}
             </>
           )}
@@ -395,7 +442,9 @@ export default function LocationDetailScreen() {
               </ThemedText>
             )}
             {reviews.map((review) => {
-              const canManage = isAdmin || review.user_id === myUserId;
+              // Only the author may edit; admins may also delete (enforced by RLS).
+              const isMine = review.user_id === myUserId;
+              const canDelete = isMine || isAdmin;
               return (
                 <ThemedView key={review.id} type="backgroundElement" style={styles.reviewCard}>
                   <ThemedView type="backgroundElement" style={styles.reviewHeader}>
@@ -406,9 +455,11 @@ export default function LocationDetailScreen() {
                   <ThemedText themeColor="textSecondary" type="small">
                     {new Date(review.created_at).toLocaleDateString()}
                   </ThemedText>
-                  {canManage && (
+                  {canDelete && (
                     <ThemedView type="backgroundElement" style={styles.reviewActions}>
-                      <ThemedButton label="Edit" variant="secondary" onPress={() => openEditReviewForm(review)} />
+                      {isMine && (
+                        <ThemedButton label="Edit" variant="secondary" onPress={() => openEditReviewForm(review)} />
+                      )}
                       <ThemedButton label="Delete" variant="secondary" onPress={() => confirmDelete(review)} />
                     </ThemedView>
                   )}
@@ -416,7 +467,7 @@ export default function LocationDetailScreen() {
               );
             })}
           </ThemedView>
-          </DismissKeyboardView>
+          </View>
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
@@ -424,6 +475,9 @@ export default function LocationDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  content: {
+    width: '100%',
+  },
   container: {
     flex: 1,
   },

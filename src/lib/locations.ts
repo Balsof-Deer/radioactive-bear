@@ -18,6 +18,8 @@ export type NearbyLocation = {
   average_rating: number | null;
   review_count: number;
   status: LocationStatus;
+  // Only populated by fetchLocationById (the detail screen).
+  admin_rejection_reason?: string | null;
 };
 
 const NEARBY_LOCATION_COLUMNS =
@@ -100,7 +102,7 @@ export async function addLocationPhotoRecord(locationId: string, storagePath: st
 export async function fetchLocationById(locationId: string): Promise<NearbyLocation> {
   const { data, error } = await supabase
     .from('locations_with_status')
-    .select(NEARBY_LOCATION_COLUMNS)
+    .select(`${NEARBY_LOCATION_COLUMNS},admin_rejection_reason`)
     .eq('id', locationId)
     .single();
 

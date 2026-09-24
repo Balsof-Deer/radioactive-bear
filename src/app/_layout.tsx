@@ -40,17 +40,12 @@ function RootNavigator() {
     return <ThemedView style={styles.loading} />;
   }
 
-  const isStudent = !!session && profile?.role === 'student';
-  const isAdmin = !!session && profile?.role === 'admin';
-
+  // Students and admins share the main app; admin-only screens are an
+  // extra tab plus an /admin/* stack inside it (see (app)/admin/_layout).
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Protected guard={isStudent}>
+      <Stack.Protected guard={!!session}>
         <Stack.Screen name="(app)" />
-      </Stack.Protected>
-
-      <Stack.Protected guard={isAdmin}>
-        <Stack.Screen name="(admin)" />
       </Stack.Protected>
 
       <Stack.Protected guard={!session}>

@@ -7,7 +7,6 @@ import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
 import { TagPicker } from '@/components/tag-picker';
 import { ThemedButton } from '@/components/themed-button';
 import { ThemedText } from '@/components/themed-text';
@@ -150,7 +149,10 @@ export default function AddLocationScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag">
           <ThemedText type="subtitle">Add a location</ThemedText>
 
           <ThemedText themeColor="textSecondary" type="small">
@@ -179,7 +181,7 @@ export default function AddLocationScreen() {
             </Pressable>
           </ThemedView>
 
-          <DismissKeyboardView>
+          <View style={styles.content}>
             <ThemedView style={styles.fields}>
               <ThemedTextInput placeholder="Name" value={name} onChangeText={setName} />
               <ThemedTextInput
@@ -238,7 +240,7 @@ export default function AddLocationScreen() {
               onPress={() => router.back()}
               disabled={isSubmitting}
             />
-          </DismissKeyboardView>
+          </View>
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
@@ -246,6 +248,9 @@ export default function AddLocationScreen() {
 }
 
 const styles = StyleSheet.create({
+  content: {
+    width: '100%',
+  },
   container: {
     flex: 1,
   },

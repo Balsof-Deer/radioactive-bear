@@ -42,7 +42,8 @@
         {
           "photosPermission": "DangerBear uses your photos so you can attach pictures when adding a new location."
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,
