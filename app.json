@@ -36,6 +36,12 @@
         {
           "locationWhenInUsePermission": "DangerBear uses your location to show nearby places on the map and filter results by distance."
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "DangerBear uses your photos so you can attach pictures when adding a new location."
+        }
       ]
     ],
     "experiments": {

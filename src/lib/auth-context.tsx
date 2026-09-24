@@ -23,6 +23,7 @@ type AuthContextValue = {
   signIn: (email: string, password: string) => Promise<AuthResult>;
   signUp: (email: string, password: string) => Promise<AuthResult>;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -85,6 +86,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
     },
     async signOut() {
       await supabase.auth.signOut();
+    },
+    async refreshProfile() {
+      if (!session) return;
+      setProfile(await fetchProfile(session.user.id));
     },
   };
 

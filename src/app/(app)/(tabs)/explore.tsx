@@ -1,6 +1,7 @@
 import { Camera, Map, UserLocation, type CameraRef } from '@maplibre/maplibre-react-native';
+import { router } from 'expo-router';
 import { useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { LocationCard } from '@/components/map/location-card';
@@ -12,11 +13,14 @@ import { ThemedView } from '@/components/themed-view';
 import { DEFAULT_RADIUS_KM, MAP_STYLE_URL } from '@/constants/map';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 import { useNearbyLocations } from '@/hooks/use-nearby-locations';
+import { useTheme } from '@/hooks/use-theme';
 import type { NearbyLocation } from '@/lib/locations';
 
 export default function ExploreScreen() {
+  const theme = useTheme();
   const [radiusKm, setRadiusKm] = useState(DEFAULT_RADIUS_KM);
   const [selectedLocation, setSelectedLocation] = useState<NearbyLocation | null>(null);
+  const [isPlacingPin, setIsPlacingPin] = useState(false);
   const cameraRef = useRef<CameraRef>(null);
   const { permission, userLocation, locations, isLoading, error, requestLocation } =
     useNearbyLocations(radiusKm);
@@ -57,9 +61,16 @@ export default function ExploreScreen() {
     cameraRef.current?.flyTo({ center: [location.longitude, location.latitude], duration: 500 });
   }
 
+  function handleMapPress(event: { nativeEvent: { lngLat: [number, number] } }) {
+    if (!isPlacingPin) return;
+    const [lng, lat] = event.nativeEvent.lngLat;
+    setIsPlacingPin(false);
+    router.push({ pathname: '/add-location', params: { lat: String(lat), lng: String(lng) } });
+  }
+
   return (
     <View style={styles.container}>
-      <Map mapStyle={MAP_STYLE_URL} style={styles.map}>
+      <Map mapStyle={MAP_STYLE_URL} style={styles.map} onPress={handleMapPress}>
         <Camera
           ref={cameraRef}
           initialViewState={{ center: [userLocation.longitude, userLocation.latitude], zoom: 14 }}
@@ -81,7 +92,13 @@ export default function ExploreScreen() {
           {isLoading && <ActivityIndicator />}
         </View>
 
-        {error && (
+        {isPlacingPin && (
+          <ThemedView type="backgroundElement" style={styles.banner}>
+            <ThemedText type="small">Tap the map to place a pin for the new location.</ThemedText>
+          </ThemedView>
+        )}
+
+        {!isPlacingPin && error && (
           <ThemedView type="backgroundElement" style={styles.banner}>
             <ThemedText themeColor="danger" type="small">
               {error}
@@ -89,17 +106,26 @@ export default function ExploreScreen() {
           </ThemedView>
         )}
 
-        {!isLoading && !error && locations.length === 0 && (
-          <ThemedView type="backgroundElement" style={styles.banner}>
-            <ThemedText themeColor="textSecondary" type="small">
-              No locations within {radiusKm} km yet.
-            </ThemedText>
-          </ThemedView>
-        )}
-
         <View style={styles.bottomSlot} pointerEvents="box-none">
-          {selectedLocation && <LocationCard location={selectedLocation} />}
+          {selectedLocation && (
+            <View style={styles.cardWrapper}>
+              <LocationCard location={selectedLocation} onClose={() => setSelectedLocation(null)} />
+            </View>
+          )}
         </View>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={isPlacingPin ? 'Cancel adding a location' : 'Add a location'}
+          onPress={() => {
+            setSelectedLocation(null);
+            setIsPlacingPin((prev) => !prev);
+          }}
+          style={[styles.fab, { backgroundColor: isPlacingPin ? theme.danger : theme.tint }]}>
+          <ThemedText type="title" style={styles.fabLabel}>
+            {isPlacingPin ? '×' : '+'}
+          </ThemedText>
+        </Pressable>
       </SafeAreaView>
     </View>
   );
@@ -144,5 +170,24 @@ const styles = StyleSheet.create({
   bottomSlot: {
     paddingHorizontal: Spacing.three,
     paddingBottom: BottomTabInset + Spacing.two,
+  },
+  cardWrapper: {
+    marginRight: 72,
+  },
+  fab: {
+    position: 'absolute',
+    right: Spacing.three,
+    bottom: BottomTabInset + Spacing.five,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
+  },
+  fabLabel: {
+    color: '#ffffff',
+    fontSize: 28,
+    lineHeight: 32,
   },
 });
