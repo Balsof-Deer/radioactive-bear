@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -21,6 +22,7 @@ export default function AdminHomeScreen() {
           <ThemedText themeColor="textSecondary" style={styles.placeholderNote}>
             Location approvals, review moderation, and admin invites will live here.
           </ThemedText>
+          <ThemedButton label="Manage tags" onPress={() => router.push('/manage-tags')} />
           <ThemedButton label="Sign out" variant="secondary" onPress={signOut} />
         </ThemedView>
       </SafeAreaView>

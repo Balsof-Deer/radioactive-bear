@@ -2,6 +2,7 @@ import type { PropsWithChildren } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 
@@ -15,12 +16,14 @@ export function AuthScreenLayout({ children }: PropsWithChildren) {
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardAvoiding}>
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}>
-            <ThemedView style={styles.form}>{children}</ThemedView>
-          </ScrollView>
+          <DismissKeyboardView>
+            <ScrollView
+              contentContainerStyle={styles.scrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}>
+              <ThemedView style={styles.form}>{children}</ThemedView>
+            </ScrollView>
+          </DismissKeyboardView>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </ThemedView>

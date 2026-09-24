@@ -130,6 +130,21 @@ export async function fetchLocationPhotos(locationId: string): Promise<LocationP
   return data;
 }
 
+export async function searchLocations(query: string): Promise<NearbyLocation[]> {
+  const { data, error } = await supabase
+    .from('locations_with_status')
+    .select(NEARBY_LOCATION_COLUMNS)
+    .ilike('name', `%${query}%`)
+    .order('name')
+    .limit(20);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []) as NearbyLocation[];
+}
+
 export async function fetchNearbyLocations(
   centerLat: number,
   centerLng: number,

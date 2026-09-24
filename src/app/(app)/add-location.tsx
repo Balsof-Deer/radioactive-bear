@@ -3,10 +3,12 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
+import { TagPicker } from '@/components/tag-picker';
 import { ThemedButton } from '@/components/themed-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedTextInput } from '@/components/themed-text-input';
@@ -16,6 +18,7 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { addLocationPhotoRecord, createLocation } from '@/lib/locations';
 import { uploadLocationPhoto } from '@/lib/storage';
+import { fetchTags, setLocationTags, type Tag } from '@/lib/tags';
 
 const MAX_PHOTOS = 5;
 
@@ -29,10 +32,28 @@ export default function AddLocationScreen() {
   const [description, setDescription] = useState('');
   const [address, setAddress] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [didSubmit, setDidSubmit] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchTags()
+      .then((data) => {
+        if (!cancelled) setTags(data);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function toggleTag(tagId: string) {
+    setSelectedTagIds((prev) => (prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]));
+  }
 
   async function useCurrentLocation() {
     setIsLocating(true);
@@ -92,6 +113,10 @@ export default function AddLocationScreen() {
       for (const uri of photos) {
         const storagePath = await uploadLocationPhoto(locationId, uri);
         await addLocationPhotoRecord(locationId, storagePath);
+      }
+
+      if (selectedTagIds.length > 0) {
+        await setLocationTags(locationId, selectedTagIds);
       }
 
       setDidSubmit(true);
@@ -154,57 +179,66 @@ export default function AddLocationScreen() {
             </Pressable>
           </ThemedView>
 
-          <ThemedView style={styles.fields}>
-            <ThemedTextInput placeholder="Name" value={name} onChangeText={setName} />
-            <ThemedTextInput
-              placeholder="Description (optional)"
-              value={description}
-              onChangeText={setDescription}
-              multiline
-              style={styles.multiline}
+          <DismissKeyboardView>
+            <ThemedView style={styles.fields}>
+              <ThemedTextInput placeholder="Name" value={name} onChangeText={setName} />
+              <ThemedTextInput
+                placeholder="Description (optional)"
+                value={description}
+                onChangeText={setDescription}
+                multiline
+                style={styles.multiline}
+              />
+              <ThemedTextInput placeholder="Address (optional)" value={address} onChangeText={setAddress} />
+            </ThemedView>
+
+            {tags.length > 0 && (
+              <ThemedView style={styles.tagsSection}>
+                <ThemedText type="smallBold">Amenities</ThemedText>
+                <TagPicker tags={tags} selectedTagIds={selectedTagIds} onToggle={toggleTag} />
+              </ThemedView>
+            )}
+
+            <ThemedView style={styles.photosSection}>
+              <ThemedText type="smallBold">
+                Photos ({photos.length}/{MAX_PHOTOS})
+              </ThemedText>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.photoRow}>
+                {photos.map((uri) => (
+                  <Pressable key={uri} onPress={() => removePhoto(uri)}>
+                    <Image source={{ uri }} style={styles.photo} />
+                    <ThemedView type="backgroundElement" style={styles.removeBadge}>
+                      <ThemedText type="small">Remove</ThemedText>
+                    </ThemedView>
+                  </Pressable>
+                ))}
+                {photos.length < MAX_PHOTOS && (
+                  <Pressable
+                    onPress={pickPhotos}
+                    style={[styles.photo, styles.addPhotoButton, { borderColor: theme.backgroundSelected }]}>
+                    <ThemedText type="smallBold">+ Add</ThemedText>
+                  </Pressable>
+                )}
+              </ScrollView>
+            </ThemedView>
+
+            {error && (
+              <ThemedText themeColor="danger" type="small">
+                {error}
+              </ThemedText>
+            )}
+
+            <ThemedButton label="Submit" onPress={handleSubmit} loading={isSubmitting} disabled={isSubmitting} />
+            <ThemedButton
+              label="Cancel"
+              variant="secondary"
+              onPress={() => router.back()}
+              disabled={isSubmitting}
             />
-            <ThemedTextInput placeholder="Address (optional)" value={address} onChangeText={setAddress} />
-          </ThemedView>
-
-          <ThemedView style={styles.photosSection}>
-            <ThemedText type="smallBold">
-              Photos ({photos.length}/{MAX_PHOTOS})
-            </ThemedText>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.photoRow}>
-              {photos.map((uri) => (
-                <Pressable key={uri} onPress={() => removePhoto(uri)}>
-                  <Image source={{ uri }} style={styles.photo} />
-                  <ThemedView type="backgroundElement" style={styles.removeBadge}>
-                    <ThemedText type="small">Remove</ThemedText>
-                  </ThemedView>
-                </Pressable>
-              ))}
-              {photos.length < MAX_PHOTOS && (
-                <Pressable
-                  onPress={pickPhotos}
-                  style={[styles.photo, styles.addPhotoButton, { borderColor: theme.backgroundSelected }]}>
-                  <ThemedText type="smallBold">+ Add</ThemedText>
-                </Pressable>
-              )}
-            </ScrollView>
-          </ThemedView>
-
-          {error && (
-            <ThemedText themeColor="danger" type="small">
-              {error}
-            </ThemedText>
-          )}
-
-          <ThemedButton label="Submit" onPress={handleSubmit} loading={isSubmitting} disabled={isSubmitting} />
-          <ThemedButton
-            label="Cancel"
-            variant="secondary"
-            onPress={() => router.back()}
-            disabled={isSubmitting}
-          />
+          </DismissKeyboardView>
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
@@ -273,6 +307,9 @@ const styles = StyleSheet.create({
   multiline: {
     minHeight: 80,
     textAlignVertical: 'top',
+  },
+  tagsSection: {
+    gap: Spacing.two,
   },
   photosSection: {
     gap: Spacing.two,

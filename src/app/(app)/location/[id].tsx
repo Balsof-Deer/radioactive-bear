@@ -5,8 +5,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
 import { ReviewForm } from '@/components/review-form';
 import { StarRating } from '@/components/star-rating';
+import { TagPicker } from '@/components/tag-picker';
 import { ThemedButton } from '@/components/themed-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedTextInput } from '@/components/themed-text-input';
@@ -32,6 +34,7 @@ import {
   type ReviewWithRatings,
 } from '@/lib/reviews';
 import { getLocationPhotoUrl, uploadLocationPhoto } from '@/lib/storage';
+import { fetchLocationTagIds, fetchTags, setLocationTags, type Tag } from '@/lib/tags';
 
 const MAX_PHOTOS = 5;
 
@@ -43,6 +46,9 @@ export default function LocationDetailScreen() {
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [reviews, setReviews] = useState<ReviewWithRatings[]>([]);
   const [categories, setCategories] = useState<RatingCategory[]>([]);
+  const [allTags, setAllTags] = useState<Tag[]>([]);
+  const [locationTagIds, setLocationTagIds] = useState<string[]>([]);
+  const [editTagIds, setEditTagIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -64,15 +70,19 @@ export default function LocationDetailScreen() {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const [loc, photos, cats, rev] = await Promise.all([
+      const [loc, photos, cats, rev, tags, locTagIds] = await Promise.all([
         fetchLocationById(id),
         fetchLocationPhotos(id),
         fetchRatingCategories(),
         fetchReviews(id),
+        fetchTags(),
+        fetchLocationTagIds(id),
       ]);
       setLocation(loc);
       setCategories(cats);
       setReviews(rev);
+      setAllTags(tags);
+      setLocationTagIds(locTagIds);
       const urls = await Promise.all(photos.map((photo) => getLocationPhotoUrl(photo.storage_path)));
       setPhotoUrls(urls.filter((url): url is string => !!url));
     } catch (err) {
@@ -134,8 +144,13 @@ export default function LocationDetailScreen() {
     setEditName(location.name);
     setEditDescription(location.description ?? '');
     setEditAddress(location.address ?? '');
+    setEditTagIds(locationTagIds);
     setLocationEditError(null);
     setIsEditingLocation(true);
+  }
+
+  function toggleEditTag(tagId: string) {
+    setEditTagIds((prev) => (prev.includes(tagId) ? prev.filter((tagId_) => tagId_ !== tagId) : [...prev, tagId]));
   }
 
   async function handleSaveLocation() {
@@ -151,6 +166,7 @@ export default function LocationDetailScreen() {
         description: editDescription.trim(),
         address: editAddress.trim(),
       });
+      await setLocationTags(id, editTagIds);
       setIsEditingLocation(false);
       await load();
     } catch (err) {
@@ -232,6 +248,7 @@ export default function LocationDetailScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+          <DismissKeyboardView>
           <ThemedView style={styles.backButtonWrapper}>
             <ThemedButton label="Back" variant="secondary" onPress={() => router.back()} />
           </ThemedView>
@@ -246,6 +263,17 @@ export default function LocationDetailScreen() {
               </ThemedText>
               {location.address && <ThemedText themeColor="textSecondary">{location.address}</ThemedText>}
               {location.description && <ThemedText>{location.description}</ThemedText>}
+              {locationTagIds.length > 0 && (
+                <ThemedView style={styles.tagBadgeRow}>
+                  {allTags
+                    .filter((tag) => locationTagIds.includes(tag.id))
+                    .map((tag) => (
+                      <ThemedView key={tag.id} type="backgroundElement" style={styles.tagBadge}>
+                        <ThemedText type="small">{tag.label}</ThemedText>
+                      </ThemedView>
+                    ))}
+                </ThemedView>
+              )}
               {canEditLocation && (
                 <ThemedButton
                   label="Edit location"
@@ -275,6 +303,8 @@ export default function LocationDetailScreen() {
                 onChangeText={setEditAddress}
                 placeholder="Address (optional)"
               />
+              <ThemedText type="smallBold">Amenities</ThemedText>
+              <TagPicker tags={allTags} selectedTagIds={editTagIds} onToggle={toggleEditTag} />
               {locationEditError && (
                 <ThemedText themeColor="danger" type="small">
                   {locationEditError}
@@ -386,6 +416,7 @@ export default function LocationDetailScreen() {
               );
             })}
           </ThemedView>
+          </DismissKeyboardView>
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
@@ -427,6 +458,17 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 28,
     lineHeight: 34,
+  },
+  tagBadgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+    marginTop: Spacing.two,
+  },
+  tagBadge: {
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.one,
+    borderRadius: Spacing.five,
   },
   editLocationButton: {
     alignSelf: 'flex-start',

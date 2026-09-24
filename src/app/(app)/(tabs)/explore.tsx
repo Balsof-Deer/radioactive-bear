@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { LocationCard } from '@/components/map/location-card';
 import { LocationMarker } from '@/components/map/location-marker';
-import { RadiusSelector } from '@/components/map/radius-selector';
+import { LocationSearchBar } from '@/components/map/location-search-bar';
 import { ThemedButton } from '@/components/themed-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -18,12 +18,11 @@ import type { NearbyLocation } from '@/lib/locations';
 
 export default function ExploreScreen() {
   const theme = useTheme();
-  const [radiusKm, setRadiusKm] = useState(DEFAULT_RADIUS_KM);
   const [selectedLocation, setSelectedLocation] = useState<NearbyLocation | null>(null);
   const [isPlacingPin, setIsPlacingPin] = useState(false);
   const cameraRef = useRef<CameraRef>(null);
   const { permission, userLocation, locations, isLoading, error, requestLocation } =
-    useNearbyLocations(radiusKm);
+    useNearbyLocations(DEFAULT_RADIUS_KM);
 
   if (permission === 'checking') {
     return (
@@ -87,9 +86,16 @@ export default function ExploreScreen() {
       </Map>
 
       <SafeAreaView style={styles.overlay} pointerEvents="box-none">
-        <View style={styles.topBar} pointerEvents="box-none">
-          <RadiusSelector value={radiusKm} onChange={setRadiusKm} />
-          {isLoading && <ActivityIndicator />}
+        <View style={styles.topSection} pointerEvents="box-none">
+          <View style={styles.searchWrapper}>
+            <LocationSearchBar onSelect={handleSelect} />
+          </View>
+
+          {isLoading && (
+            <View style={styles.topBar} pointerEvents="box-none">
+              <ActivityIndicator />
+            </View>
+          )}
         </View>
 
         {isPlacingPin && (
@@ -155,12 +161,18 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     justifyContent: 'space-between',
   },
+  topSection: {
+    gap: Spacing.two,
+    paddingTop: Spacing.two,
+  },
+  searchWrapper: {
+    paddingHorizontal: Spacing.three,
+  },
   topBar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     alignItems: 'center',
     paddingHorizontal: Spacing.three,
-    paddingTop: Spacing.two,
   },
   banner: {
     marginHorizontal: Spacing.three,
