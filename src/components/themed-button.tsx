@@ -36,11 +36,11 @@ export function ThemedButton({
       ]}
       {...rest}>
       {loading ? (
-        <ActivityIndicator color={variant === 'primary' ? '#ffffff' : theme.text} />
+        <ActivityIndicator color={variant === 'primary' ? theme.onTint : theme.text} />
       ) : (
         <ThemedText
           type="smallBold"
-          style={{ color: variant === 'primary' ? '#ffffff' : theme.text }}>
+          style={{ color: variant === 'primary' ? theme.onTint : theme.text }}>
           {label}
         </ThemedText>
       )}

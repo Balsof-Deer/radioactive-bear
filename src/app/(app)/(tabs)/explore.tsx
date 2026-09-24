@@ -128,7 +128,9 @@ export default function ExploreScreen() {
             setIsPlacingPin((prev) => !prev);
           }}
           style={[styles.fab, { backgroundColor: isPlacingPin ? theme.danger : theme.tint }]}>
-          <ThemedText type="title" style={styles.fabLabel}>
+          <ThemedText
+            type="title"
+            style={[styles.fabLabel, { color: isPlacingPin ? '#ffffff' : theme.onTint }]}>
             {isPlacingPin ? '×' : '+'}
           </ThemedText>
         </Pressable>
@@ -198,7 +200,6 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   fabLabel: {
-    color: '#ffffff',
     fontSize: 28,
     lineHeight: 32,
   },

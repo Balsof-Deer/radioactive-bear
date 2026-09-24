@@ -31,7 +31,7 @@ export function TagPicker({ tags, selectedTagIds, onToggle }: TagPickerProps) {
             ]}>
             <ThemedText
               type="small"
-              style={selected ? styles.selectedLabel : undefined}
+              style={selected ? { color: theme.onTint } : undefined}
               themeColor={selected ? undefined : 'textSecondary'}>
               {tag.label}
             </ThemedText>
@@ -53,8 +53,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     borderRadius: Spacing.five,
-  },
-  selectedLabel: {
-    color: '#ffffff',
   },
 });

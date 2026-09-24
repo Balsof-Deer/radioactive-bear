@@ -3,12 +3,15 @@
  * https://docs.expo.dev/guides/color-schemes/
  */
 
-import { Colors } from '@/constants/theme';
+import { Colors, type ThemePalette } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { readableTextOn } from '@/lib/color';
+import { useThemePreference } from '@/lib/theme-preference';
 
-export function useTheme() {
+export function useTheme(): ThemePalette {
   const scheme = useColorScheme();
-  const theme = scheme === 'unspecified' ? 'light' : scheme;
+  const { accent } = useThemePreference();
+  const base = Colors[scheme === 'dark' ? 'dark' : 'light'];
 
-  return Colors[theme];
+  return { ...base, tint: accent, onTint: readableTextOn(accent) };
 }

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AppearanceSettings } from '@/components/appearance-settings';
 import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
 import { TagPicker } from '@/components/tag-picker';
 import { ThemedButton } from '@/components/themed-button';
@@ -27,6 +28,7 @@ export default function SettingsScreen() {
   const [isSavingPreferences, setIsSavingPreferences] = useState(false);
   const [preferencesSaved, setPreferencesSaved] = useState(false);
   const [preferencesError, setPreferencesError] = useState<string | null>(null);
+  const [isPickingColor, setIsPickingColor] = useState(false);
 
   const loadPreferences = useCallback(async () => {
     if (!session) return;
@@ -86,7 +88,7 @@ export default function SettingsScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <DismissKeyboardView>
-          <ScrollView contentContainerStyle={styles.scrollContent}>
+          <ScrollView contentContainerStyle={styles.scrollContent} scrollEnabled={!isPickingColor}>
             <ThemedView style={styles.headerRow}>
               <ThemedText type="subtitle">Settings</ThemedText>
               <ThemedButton label="Close" variant="secondary" onPress={() => router.back()} />
@@ -142,8 +144,10 @@ export default function SettingsScreen() {
               />
             </ThemedView>
 
+            <AppearanceSettings onPickingChange={setIsPickingColor} />
+
             <ThemedText themeColor="textSecondary" type="small" style={styles.note}>
-              More settings (theme and account options) are coming in a later phase.
+              More settings (account options) are coming in a later phase.
             </ThemedText>
           </ScrollView>
         </DismissKeyboardView>

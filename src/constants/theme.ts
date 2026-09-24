@@ -13,6 +13,7 @@ export const Colors = {
     backgroundSelected: '#E0E1E6',
     textSecondary: '#60646C',
     tint: '#3c87f7',
+    onTint: '#ffffff',
     danger: '#D14343',
   },
   dark: {
@@ -22,11 +23,24 @@ export const Colors = {
     backgroundSelected: '#2E3135',
     textSecondary: '#B0B4BA',
     tint: '#3c87f7',
+    onTint: '#ffffff',
     danger: '#FF6B6B',
   },
 } as const;
 
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
+
+export type ThemePalette = Record<ThemeColor, string>;
+
+export const DEFAULT_ACCENT = '#3c87f7';
+
+export const ACCENT_PRESETS = [
+  { label: 'Blue', value: DEFAULT_ACCENT },
+  { label: 'Green', value: '#1f9d7a' },
+  { label: 'Purple', value: '#8b5cf6' },
+  { label: 'Orange', value: '#f08c1a' },
+  { label: 'Pink', value: '#e0578a' },
+] as const;
 
 export const Fonts = Platform.select({
   ios: {

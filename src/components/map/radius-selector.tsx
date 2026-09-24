@@ -27,7 +27,7 @@ export function RadiusSelector({ value, onChange }: RadiusSelectorProps) {
             style={[styles.pill, selected && { backgroundColor: theme.tint }]}>
             <ThemedText
               type="smallBold"
-              style={selected ? styles.selectedLabel : undefined}
+              style={selected ? { color: theme.onTint } : undefined}
               themeColor={selected ? undefined : 'textSecondary'}>
               {radiusKm} km
             </ThemedText>
@@ -49,8 +49,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     borderRadius: Spacing.five,
-  },
-  selectedLabel: {
-    color: '#ffffff',
   },
 });

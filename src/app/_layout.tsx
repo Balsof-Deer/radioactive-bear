@@ -5,10 +5,19 @@ import { StyleSheet, useColorScheme } from 'react-native';
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { ThemedView } from '@/components/themed-view';
 import { AuthProvider, useSession } from '@/lib/auth-context';
+import { ThemePreferenceProvider, useThemePreference } from '@/lib/theme-preference';
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  return (
+    <ThemePreferenceProvider>
+      <ThemedRoot />
+    </ThemePreferenceProvider>
+  );
+}
+
+function ThemedRoot() {
   const colorScheme = useColorScheme();
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
@@ -22,10 +31,12 @@ export default function RootLayout() {
 
 function RootNavigator() {
   const { session, profile, isLoading } = useSession();
+  const { isReady: isThemeReady } = useThemePreference();
 
-  // Wait for the initial session check, and if a session exists, for its
-  // profile (which carries the role that decides which stack to show).
-  if (isLoading || (session && !profile)) {
+  // Wait for the saved theme (so the app doesn't flash the wrong mode),
+  // the initial session check, and if a session exists, its profile
+  // (which carries the role that decides which stack to show).
+  if (!isThemeReady || isLoading || (session && !profile)) {
     return <ThemedView style={styles.loading} />;
   }
 
