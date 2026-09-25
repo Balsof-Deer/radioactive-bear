@@ -2,12 +2,12 @@ import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, StyleSheet } from 'react-native';
 
-import { AdminScreen } from '@/components/admin-screen';
+import { PageScreen } from '@/components/page-screen';
 import { StarRating } from '@/components/star-rating';
 import { ThemedButton } from '@/components/themed-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Shape, Spacing } from '@/constants/theme';
 import { deleteLocation, fetchAllLocations, type AdminLocation } from '@/lib/admin';
 import { useAdminBadges } from '@/lib/admin-badges';
 import { LOCATION_STATUS_COLOR, LOCATION_STATUS_LABEL } from '@/lib/location-status';
@@ -69,7 +69,7 @@ export default function AllLocationsScreen() {
   }
 
   return (
-    <AdminScreen title="All locations" isLoading={isLoading} error={error}>
+    <PageScreen title="All locations" isLoading={isLoading} error={error}>
       {!isLoading && (
         <ThemedText themeColor="textSecondary" type="small">
           {locations.length} location{locations.length === 1 ? '' : 's'}, newest first. Pending ones are
@@ -104,7 +104,7 @@ export default function AllLocationsScreen() {
             </ThemedView>
             <ThemedText themeColor="textSecondary" type="small">
               Added {new Date(location.created_at).toLocaleDateString()} by{' '}
-              {location.submitter_email ?? 'unknown user'}
+              {location.submitted_by === null ? 'a deleted user' : (location.submitter_email ?? 'unknown user')}
             </ThemedText>
             <ThemedView type="backgroundElement" style={styles.actions}>
               <ThemedButton
@@ -124,7 +124,7 @@ export default function AllLocationsScreen() {
           </ThemedView>
         );
       })}
-    </AdminScreen>
+    </PageScreen>
   );
 }
 
@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
   card: {
     gap: Spacing.one,
     padding: Spacing.three,
-    borderRadius: Spacing.three,
+    borderRadius: Shape.extraLarge,
   },
   ratingRow: {
     flexDirection: 'row',

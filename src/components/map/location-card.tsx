@@ -4,7 +4,7 @@ import { Pressable, StyleSheet } from 'react-native';
 import { ThemedButton } from '@/components/themed-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Shape, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { LOCATION_STATUS_COLOR, LOCATION_STATUS_LABEL } from '@/lib/location-status';
 import type { NearbyLocation } from '@/lib/locations';
@@ -60,7 +60,7 @@ export function LocationCard({ location, onClose }: LocationCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: Spacing.three,
+    borderRadius: Shape.extraLarge,
     padding: Spacing.three,
     gap: Spacing.half,
   },

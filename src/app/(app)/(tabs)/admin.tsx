@@ -1,12 +1,13 @@
 import { router, type Href } from 'expo-router';
-import { ScrollView, StyleSheet } from 'react-native';
+import { Pressable, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { MenuButton } from '@/components/menu-button';
 import { NotificationBadge } from '@/components/notification-badge';
-import { ThemedButton } from '@/components/themed-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { BottomTabInset, MaxContentWidth, Shape, Spacing, withAlpha } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import type { AdminSection, BadgeCounts } from '@/lib/admin';
 import { useAdminBadges } from '@/lib/admin-badges';
 import { useSession } from '@/lib/auth-context';
@@ -54,22 +55,34 @@ const LINKS: AdminLink[] = [
 ];
 
 export default function AdminHomeScreen() {
-  const { profile, signOut } = useSession();
+  const theme = useTheme();
+  const { profile } = useSession();
   const { counts, checks } = useAdminBadges();
 
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          <ThemedText type="title" style={styles.title}>
-            Admin
-          </ThemedText>
+          <ThemedView style={styles.titleRow}>
+            <MenuButton />
+            <ThemedText type="title" style={styles.title}>
+              Admin
+            </ThemedText>
+          </ThemedView>
           <ThemedText themeColor="textSecondary">{profile?.email}</ThemedText>
 
           {LINKS.map((link) => {
             const check = link.section ? checks[link.section] : undefined;
             return (
-              <ThemedView key={link.label} type="backgroundElement" style={styles.linkCard}>
+              // The whole tile opens the section; the ripple is the M3 pressed state.
+              <Pressable
+                key={link.label}
+                accessibilityRole="button"
+                accessibilityLabel={link.label}
+                accessibilityHint={link.description}
+                onPress={() => router.push(link.href)}
+                android_ripple={{ color: withAlpha(theme.onSurface, 0.1), foreground: true }}
+                style={[styles.linkCard, { backgroundColor: theme.backgroundElement }]}>
                 <ThemedView type="backgroundElement" style={styles.cardHeader}>
                   <ThemedText type="smallBold" style={styles.cardTitle}>
                     {link.label}
@@ -86,12 +99,9 @@ export default function AdminHomeScreen() {
                       : 'Not checked yet'}
                   </ThemedText>
                 )}
-                <ThemedButton label="Open" variant="secondary" onPress={() => router.push(link.href)} />
-              </ThemedView>
+              </Pressable>
             );
           })}
-
-          <ThemedButton label="Sign out" variant="secondary" onPress={signOut} />
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
@@ -114,6 +124,11 @@ const styles = StyleSheet.create({
     paddingBottom: BottomTabInset + Spacing.three,
     gap: Spacing.three,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
   title: {
     fontSize: 32,
     lineHeight: 38,
@@ -121,7 +136,9 @@ const styles = StyleSheet.create({
   linkCard: {
     gap: Spacing.one,
     padding: Spacing.three,
-    borderRadius: Spacing.three,
+    borderRadius: Shape.extraLarge,
+    // Keeps the ripple inside the rounded corners.
+    overflow: 'hidden',
   },
   cardHeader: {
     flexDirection: 'row',

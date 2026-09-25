@@ -1,36 +1,42 @@
-/**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
- */
-
+import type { MaterialColors } from '@expo/ui/jetpack-compose';
 import { Platform } from 'react-native';
 
-export const Colors = {
-  light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
-    tint: '#3c87f7',
-    onTint: '#ffffff',
-    danger: '#D14343',
-  },
-  dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
-    tint: '#3c87f7',
-    onTint: '#ffffff',
-    danger: '#FF6B6B',
-  },
-} as const;
+/**
+ * Colors come from the Material 3 color scheme that @expo/ui generates
+ * natively (Android), seeded from the user's accent or their wallpaper;
+ * see ThemePreferenceProvider. The app-level names below map onto M3
+ * roles so existing screens keep working, and every M3 role is also
+ * available directly for Material-styled components.
+ */
+export type ThemePalette = MaterialColors & {
+  text: string;
+  background: string;
+  backgroundElement: string;
+  backgroundSelected: string;
+  textSecondary: string;
+  tint: string;
+  onTint: string;
+  danger: string;
+};
 
-export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
+export type ThemeColor = keyof ThemePalette;
 
-export type ThemePalette = Record<ThemeColor, string>;
+export function paletteFromMaterial(m3: MaterialColors): ThemePalette {
+  return {
+    ...m3,
+    text: m3.onSurface,
+    background: m3.surface,
+    backgroundElement: m3.surfaceContainer,
+    backgroundSelected: m3.surfaceContainerHighest,
+    textSecondary: m3.onSurfaceVariant,
+    tint: m3.primary,
+    onTint: m3.onPrimary,
+    danger: m3.error,
+  };
+}
+
+// Stored in place of a hex accent when the user picks wallpaper colors.
+export const WALLPAPER_ACCENT = 'wallpaper';
 
 export const DEFAULT_ACCENT = '#3c87f7';
 
@@ -70,6 +76,48 @@ export const Spacing = {
   five: 32,
   six: 64,
 } as const;
+
+// Material 3 Expressive corner-radius scale.
+export const Shape = {
+  none: 0,
+  extraSmall: 4,
+  small: 8,
+  medium: 12,
+  large: 16,
+  largeIncreased: 20,
+  extraLarge: 28,
+  extraLargeIncreased: 32,
+  extraExtraLarge: 48,
+  full: 9999,
+} as const;
+
+// Material 3 type scale (Roboto, Android's system font).
+export const Typography = {
+  displayLarge: { fontSize: 57, lineHeight: 64, letterSpacing: -0.25 },
+  displayMedium: { fontSize: 45, lineHeight: 52, letterSpacing: 0 },
+  displaySmall: { fontSize: 36, lineHeight: 44, letterSpacing: 0 },
+  headlineLarge: { fontSize: 32, lineHeight: 40, letterSpacing: 0 },
+  headlineMedium: { fontSize: 28, lineHeight: 36, letterSpacing: 0 },
+  headlineSmall: { fontSize: 24, lineHeight: 32, letterSpacing: 0 },
+  titleLarge: { fontSize: 22, lineHeight: 28, letterSpacing: 0 },
+  titleMedium: { fontSize: 16, lineHeight: 24, letterSpacing: 0.15, fontWeight: 500 },
+  titleSmall: { fontSize: 14, lineHeight: 20, letterSpacing: 0.1, fontWeight: 500 },
+  bodyLarge: { fontSize: 16, lineHeight: 24, letterSpacing: 0.5 },
+  bodyMedium: { fontSize: 14, lineHeight: 20, letterSpacing: 0.25 },
+  bodySmall: { fontSize: 12, lineHeight: 16, letterSpacing: 0.4 },
+  labelLarge: { fontSize: 14, lineHeight: 20, letterSpacing: 0.1, fontWeight: 500 },
+  labelMedium: { fontSize: 12, lineHeight: 16, letterSpacing: 0.5, fontWeight: 500 },
+  labelSmall: { fontSize: 11, lineHeight: 16, letterSpacing: 0.5, fontWeight: 500 },
+} as const;
+
+// Adds transparency to a palette color (#RRGGBB or #RRGGBBAA), as M3 does
+// for disabled states (e.g. onSurface at 38%).
+export function withAlpha(color: string, alpha: number): string {
+  const hex = Math.round(Math.min(1, Math.max(0, alpha)) * 255)
+    .toString(16)
+    .padStart(2, '0');
+  return `${color.slice(0, 7)}${hex}`;
+}
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;

@@ -1,8 +1,8 @@
-import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BackButton } from '@/components/back-button';
 import { ThemedButton } from '@/components/themed-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedTextInput } from '@/components/themed-text-input';
@@ -77,8 +77,8 @@ export default function ManageTagsScreen() {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag">
           <ThemedView style={styles.headerRow}>
+            <BackButton />
             <ThemedText type="subtitle">Manage tags</ThemedText>
-            <ThemedButton label="Back" variant="secondary" onPress={() => router.back()} />
           </ThemedView>
 
           <ThemedView style={styles.addRow}>
@@ -132,8 +132,8 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: Spacing.two,
   },
   addRow: {
     flexDirection: 'row',

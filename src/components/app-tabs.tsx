@@ -1,15 +1,13 @@
 import { router } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { useEffect, useRef } from 'react';
-import { useColorScheme } from 'react-native';
 
-import { Colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { useAdminBadges } from '@/lib/admin-badges';
 import { useSession } from '@/lib/auth-context';
 
 export default function AppTabs() {
-  const scheme = useColorScheme();
-  const colors = Colors[scheme === 'unspecified' ? 'light' : scheme];
+  const theme = useTheme();
   const { profile } = useSession();
   const isAdmin = profile?.role === 'admin';
   const { total: adminBadgeTotal } = useAdminBadges();
@@ -26,9 +24,9 @@ export default function AppTabs() {
 
   return (
     <NativeTabs
-      backgroundColor={colors.background}
-      indicatorColor={colors.backgroundElement}
-      labelStyle={{ selected: { color: colors.text } }}>
+      backgroundColor={theme.surfaceContainer}
+      indicatorColor={theme.secondaryContainer}
+      labelStyle={{ selected: { color: theme.onSurface } }}>
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
@@ -49,9 +47,11 @@ export default function AppTabs() {
       <NativeTabs.Trigger name="admin" hidden={!isAdmin}>
         <NativeTabs.Trigger.Label>Admin</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon md="admin_panel_settings" sf="shield.lefthalf.filled" />
-        <NativeTabs.Trigger.Badge hidden={adminBadgeTotal === 0}>
-          {adminBadgeTotal > 99 ? '99+' : String(adminBadgeTotal)}
-        </NativeTabs.Trigger.Badge>
+        {/* Only rendered when there's work: expo-router ignores `hidden` once
+            the badge has text, so "0" would still show. */}
+        {adminBadgeTotal > 0 && (
+          <NativeTabs.Trigger.Badge>{adminBadgeTotal > 99 ? '99+' : String(adminBadgeTotal)}</NativeTabs.Trigger.Badge>
+        )}
       </NativeTabs.Trigger>
     </NativeTabs>
   );

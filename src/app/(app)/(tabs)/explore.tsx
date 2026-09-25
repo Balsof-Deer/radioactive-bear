@@ -7,11 +7,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LocationCard } from '@/components/map/location-card';
 import { LocationMarker } from '@/components/map/location-marker';
 import { LocationSearchBar } from '@/components/map/location-search-bar';
+import { MenuButton } from '@/components/menu-button';
 import { ThemedButton } from '@/components/themed-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { DEFAULT_RADIUS_KM, MAP_STYLE_URL } from '@/constants/map';
-import { BottomTabInset, Spacing } from '@/constants/theme';
+import { BottomTabInset, Shape, Spacing } from '@/constants/theme';
 import { useNearbyLocations } from '@/hooks/use-nearby-locations';
 import { useTheme } from '@/hooks/use-theme';
 import type { NearbyLocation } from '@/lib/locations';
@@ -88,7 +89,13 @@ export default function ExploreScreen() {
       <SafeAreaView style={styles.overlay} pointerEvents="box-none">
         <View style={styles.topSection} pointerEvents="box-none">
           <View style={styles.searchWrapper}>
-            <LocationSearchBar onSelect={handleSelect} />
+            {/* Sits on the map, so it gets a surface behind it to stay visible. */}
+            <View style={[styles.menuButtonSurface, { backgroundColor: theme.surfaceContainerHigh }]}>
+              <MenuButton />
+            </View>
+            <View style={styles.searchBar}>
+              <LocationSearchBar onSelect={handleSelect} />
+            </View>
           </View>
 
           {isLoading && (
@@ -130,7 +137,7 @@ export default function ExploreScreen() {
           style={[styles.fab, { backgroundColor: isPlacingPin ? theme.danger : theme.tint }]}>
           <ThemedText
             type="title"
-            style={[styles.fabLabel, { color: isPlacingPin ? '#ffffff' : theme.onTint }]}>
+            style={[styles.fabLabel, { color: isPlacingPin ? theme.onError : theme.onTint }]}>
             {isPlacingPin ? '×' : '+'}
           </ThemedText>
         </Pressable>
@@ -168,7 +175,17 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.two,
   },
   searchWrapper: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.two,
     paddingHorizontal: Spacing.three,
+  },
+  menuButtonSurface: {
+    borderRadius: Shape.full,
+    elevation: 3,
+  },
+  searchBar: {
+    flex: 1,
   },
   topBar: {
     flexDirection: 'row',

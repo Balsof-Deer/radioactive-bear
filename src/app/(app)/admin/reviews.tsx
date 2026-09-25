@@ -2,12 +2,12 @@ import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, StyleSheet } from 'react-native';
 
-import { AdminScreen } from '@/components/admin-screen';
+import { PageScreen } from '@/components/page-screen';
 import { StarRating } from '@/components/star-rating';
 import { ThemedButton } from '@/components/themed-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Shape, Spacing } from '@/constants/theme';
 import { fetchRecentReviews, type ModerationReview } from '@/lib/admin';
 import { useAdminBadges } from '@/lib/admin-badges';
 import { deleteReview } from '@/lib/reviews';
@@ -61,7 +61,7 @@ export default function ReviewModerationScreen() {
   }
 
   return (
-    <AdminScreen title="Review moderation" isLoading={isLoading} error={error}>
+    <PageScreen title="Review moderation" isLoading={isLoading} error={error}>
       <ThemedText themeColor="textSecondary" type="small">
         The 50 most recent reviews. Admins can delete a review but only its author can edit it.
       </ThemedText>
@@ -77,7 +77,7 @@ export default function ReviewModerationScreen() {
           <ThemedText type="smallBold">{review.location_name ?? 'Unknown location'}</ThemedText>
           <ThemedView type="backgroundElement" style={styles.headerRow}>
             <ThemedText type="small">
-              {review.reviewer_display_name ?? review.reviewer_email ?? 'Unknown user'}
+              {review.reviewer_display_name ?? review.reviewer_email ?? 'Deleted user'}
             </ThemedText>
             <StarRating value={review.overall_rating} size={16} />
           </ThemedView>
@@ -95,7 +95,7 @@ export default function ReviewModerationScreen() {
           </ThemedView>
         </ThemedView>
       ))}
-    </AdminScreen>
+    </PageScreen>
   );
 }
 
@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
   card: {
     gap: Spacing.one,
     padding: Spacing.three,
-    borderRadius: Spacing.three,
+    borderRadius: Shape.extraLarge,
   },
   headerRow: {
     flexDirection: 'row',

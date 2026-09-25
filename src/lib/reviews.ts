@@ -10,7 +10,8 @@ export type RatingCategory = {
 export type ReviewWithRatings = {
   id: string;
   location_id: string;
-  user_id: string;
+  // null once the reviewer has deleted their account.
+  user_id: string | null;
   overall_rating: number;
   body: string | null;
   created_at: string;
@@ -28,7 +29,8 @@ export type ReviewFormValues = {
 type ReviewRow = {
   id: string;
   location_id: string;
-  user_id: string;
+  // null once the reviewer has deleted their account.
+  user_id: string | null;
   overall_rating: number;
   body: string | null;
   created_at: string;
@@ -136,4 +138,29 @@ export async function deleteReview(reviewId: string): Promise<void> {
   if (error) {
     throw new Error(error.message);
   }
+}
+
+export type MyReview = {
+  id: string;
+  location_id: string;
+  location_name: string | null;
+  overall_rating: number;
+  body: string | null;
+  created_at: string;
+};
+
+export async function fetchMyReviews(userId: string): Promise<MyReview[]> {
+  const { data, error } = await supabase
+    .from('reviews')
+    .select('id, location_id, overall_rating, body, created_at, locations(name)')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (
+    data as unknown as (Omit<MyReview, 'location_name'> & { locations: { name: string } | null })[]
+  ).map(({ locations, ...review }) => ({ ...review, location_name: locations?.name ?? null }));
 }

@@ -4,8 +4,8 @@ import { ActivityIndicator, ScrollView, StyleSheet, Switch } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { LocationListItem } from '@/components/map/location-list-item';
+import { MenuButton } from '@/components/menu-button';
 import { RadiusSelector } from '@/components/map/radius-selector';
-import { ThemedButton } from '@/components/themed-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { DEFAULT_RADIUS_KM } from '@/constants/map';
@@ -17,7 +17,7 @@ import { useSession } from '@/lib/auth-context';
 
 export default function HomeScreen() {
   const theme = useTheme();
-  const { profile, signOut } = useSession();
+  const { profile } = useSession();
   const [radiusKm, setRadiusKm] = useState(DEFAULT_RADIUS_KM);
   const { permission, locations, isLoading, error } = useNearbyLocations(radiusKm);
   const locationIds = useMemo(() => locations.map((location) => location.id), [locations]);
@@ -34,13 +34,13 @@ export default function HomeScreen() {
       <SafeAreaView style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <ThemedView style={styles.headerRow}>
+            <MenuButton />
             <ThemedView style={styles.greeting}>
               <ThemedText type="title" style={styles.title}>
                 Welcome{profile?.display_name ? `, ${profile.display_name}` : ''}
               </ThemedText>
               <ThemedText themeColor="textSecondary">{profile?.email}</ThemedText>
             </ThemedView>
-            <ThemedButton label="Settings" variant="secondary" onPress={() => router.push('/settings')} />
           </ThemedView>
 
           <ThemedView style={styles.section}>
@@ -94,8 +94,6 @@ export default function HomeScreen() {
               />
             ))}
           </ThemedView>
-
-          <ThemedButton label="Sign out" variant="secondary" onPress={signOut} />
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
@@ -120,7 +118,6 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: MaxContentWidth,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     gap: Spacing.two,
   },
@@ -139,6 +136,7 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: Spacing.two,

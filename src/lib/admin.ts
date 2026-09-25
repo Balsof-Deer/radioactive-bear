@@ -13,7 +13,8 @@ export type PendingLocation = {
   status: LocationStatus;
   created_at: string;
   visible_from: string;
-  submitted_by: string;
+  // null once the submitter has deleted their account.
+  submitted_by: string | null;
   submitter_email: string | null;
 };
 
@@ -32,12 +33,13 @@ export async function fetchPendingLocations(): Promise<PendingLocation[]> {
   const submitterIds = [...new Set(rows.map((row) => row.submitted_by))];
   const emails = await fetchEmailsById(submitterIds);
 
-  return rows.map((row) => ({ ...row, submitter_email: emails[row.submitted_by] ?? null }));
+  return rows.map((row) => ({ ...row, submitter_email: (row.submitted_by ? emails[row.submitted_by] : null) ?? null }));
 }
 
-async function fetchEmailsById(ids: string[]): Promise<Record<string, string>> {
-  if (ids.length === 0) return {};
-  const { data, error } = await supabase.from('profiles').select('id,email').in('id', ids);
+async function fetchEmailsById(ids: (string | null)[]): Promise<Record<string, string>> {
+  const knownIds = ids.filter((id): id is string => id !== null);
+  if (knownIds.length === 0) return {};
+  const { data, error } = await supabase.from('profiles').select('id,email').in('id', knownIds);
   if (error) {
     throw new Error(error.message);
   }
@@ -273,7 +275,7 @@ export async function fetchAllLocations(): Promise<AdminLocation[]> {
 
   const rows = data as Omit<AdminLocation, 'submitter_email'>[];
   const emails = await fetchEmailsById([...new Set(rows.map((row) => row.submitted_by))]);
-  return rows.map((row) => ({ ...row, submitter_email: emails[row.submitted_by] ?? null }));
+  return rows.map((row) => ({ ...row, submitter_email: (row.submitted_by ? emails[row.submitted_by] : null) ?? null }));
 }
 
 // The only path to becoming an admin: a security-definer function that

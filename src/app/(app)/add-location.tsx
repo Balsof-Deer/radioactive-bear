@@ -13,7 +13,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedTextInput } from '@/components/themed-text-input';
 import { ThemedView } from '@/components/themed-view';
 import { MAP_STYLE_URL } from '@/constants/map';
-import { Spacing } from '@/constants/theme';
+import { Shape, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { addLocationPhotoRecord, createLocation } from '@/lib/locations';
 import { uploadLocationPhoto } from '@/lib/storage';
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
   },
   mapPreview: {
     height: 280,
-    borderRadius: Spacing.three,
+    borderRadius: Shape.extraLarge,
     overflow: 'hidden',
   },
   map: {

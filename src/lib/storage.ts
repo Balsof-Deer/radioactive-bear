@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 
 const LOCATION_PHOTOS_BUCKET = 'location-photos';
 
-function extensionFromUri(uri: string): string {
+export function extensionFromUri(uri: string): string {
   const match = /\.([a-zA-Z0-9]+)$/.exec(uri);
   return match ? match[1].toLowerCase() : 'jpg';
 }

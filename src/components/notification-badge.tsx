@@ -11,8 +11,8 @@ export function NotificationBadge({ count }: { count: number }) {
   return (
     <View
       accessibilityLabel={`${count} to review`}
-      style={[styles.badge, { backgroundColor: theme.danger }]}>
-      <ThemedText type="smallBold" style={styles.label}>
+      style={[styles.badge, { backgroundColor: theme.error }]}>
+      <ThemedText type="smallBold" style={[styles.label, { color: theme.onError }]}>
         {count > 99 ? '99+' : String(count)}
       </ThemedText>
     </View>
@@ -29,7 +29,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   label: {
-    color: '#ffffff',
     fontSize: 12,
     lineHeight: 16,
   },

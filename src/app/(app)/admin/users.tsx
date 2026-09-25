@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet } from 'react-native';
 
-import { AdminScreen } from '@/components/admin-screen';
+import { PageScreen } from '@/components/page-screen';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Shape, Spacing } from '@/constants/theme';
 import { fetchUsers, type AdminUser } from '@/lib/admin';
 import { useAdminBadges } from '@/lib/admin-badges';
 
@@ -41,7 +41,7 @@ export default function UsersScreen() {
   const adminCount = users.filter((user) => user.role === 'admin').length;
 
   return (
-    <AdminScreen title="Users" isLoading={isLoading} error={error}>
+    <PageScreen title="Users" isLoading={isLoading} error={error}>
       {!isLoading && (
         <ThemedText themeColor="textSecondary" type="small">
           {users.length} account{users.length === 1 ? '' : 's'}, {adminCount} admin
@@ -69,7 +69,7 @@ export default function UsersScreen() {
           </ThemedText>
         </ThemedView>
       ))}
-    </AdminScreen>
+    </PageScreen>
   );
 }
 
@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
   card: {
     gap: Spacing.half,
     padding: Spacing.three,
-    borderRadius: Spacing.three,
+    borderRadius: Shape.extraLarge,
   },
   row: {
     flexDirection: 'row',

@@ -14,7 +14,8 @@ export type NearbyLocation = {
   address: string | null;
   latitude: number;
   longitude: number;
-  submitted_by: string;
+  // null once the submitter has deleted their account.
+  submitted_by: string | null;
   average_rating: number | null;
   review_count: number;
   status: LocationStatus;
@@ -165,4 +166,27 @@ export async function fetchNearbyLocations(
   }
 
   return (data ?? []) as NearbyLocation[];
+}
+
+export type MyLocation = {
+  id: string;
+  name: string;
+  address: string | null;
+  status: LocationStatus;
+  average_rating: number | null;
+  review_count: number;
+  created_at: string;
+};
+
+export async function fetchMyLocations(userId: string): Promise<MyLocation[]> {
+  const { data, error } = await supabase
+    .from('locations_with_status')
+    .select('id,name,address,status,average_rating,review_count,created_at')
+    .eq('submitted_by', userId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+  return data as MyLocation[];
 }

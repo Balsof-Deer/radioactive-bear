@@ -1,20 +1,19 @@
-import { router } from 'expo-router';
 import type { PropsWithChildren } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ThemedButton } from '@/components/themed-button';
+import { BackButton } from '@/components/back-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 
-type AdminScreenProps = PropsWithChildren<{
+type PageScreenProps = PropsWithChildren<{
   title: string;
   isLoading?: boolean;
   error?: string | null;
 }>;
 
-export function AdminScreen({ title, isLoading, error, children }: AdminScreenProps) {
+export function PageScreen({ title, isLoading, error, children }: PageScreenProps) {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
@@ -23,10 +22,10 @@ export function AdminScreen({ title, isLoading, error, children }: AdminScreenPr
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag">
           <ThemedView style={styles.headerRow}>
+            <BackButton />
             <ThemedText type="subtitle" style={styles.title}>
               {title}
             </ThemedText>
-            <ThemedButton label="Back" variant="secondary" onPress={() => router.back()} />
           </ThemedView>
           {isLoading && <ActivityIndicator style={styles.loading} />}
           {error && (
@@ -57,7 +56,6 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     gap: Spacing.two,
   },

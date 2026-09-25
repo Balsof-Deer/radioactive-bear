@@ -9,6 +9,8 @@ export type Profile = {
   id: string;
   email: string;
   display_name: string | null;
+  // Path in the private "avatars" bucket, or null for no photo.
+  avatar_path: string | null;
   role: Role;
   created_at: string;
   updated_at: string;

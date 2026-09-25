@@ -2,12 +2,12 @@ import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, StyleSheet } from 'react-native';
 
-import { AdminScreen } from '@/components/admin-screen';
+import { PageScreen } from '@/components/page-screen';
 import { ThemedButton } from '@/components/themed-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedTextInput } from '@/components/themed-text-input';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Shape, Spacing } from '@/constants/theme';
 import {
   approveLocation,
   deleteLocation,
@@ -80,7 +80,7 @@ export default function ApprovalsScreen() {
   }
 
   return (
-    <AdminScreen title="Location approvals" isLoading={isLoading} error={error}>
+    <PageScreen title="Location approvals" isLoading={isLoading} error={error}>
       {!isLoading && locations.length === 0 && (
         <ThemedText themeColor="textSecondary" type="small">
           Nothing waiting for approval.
@@ -103,7 +103,7 @@ export default function ApprovalsScreen() {
             {location.description && <ThemedText type="small">{location.description}</ThemedText>}
             <ThemedText themeColor="textSecondary" type="small">
               Submitted {new Date(location.created_at).toLocaleDateString()} by{' '}
-              {location.submitter_email ?? 'unknown user'}
+              {location.submitted_by === null ? 'a deleted user' : (location.submitter_email ?? 'unknown user')}
             </ThemedText>
 
             {rejectingId === location.id ? (
@@ -155,7 +155,7 @@ export default function ApprovalsScreen() {
           </ThemedView>
         );
       })}
-    </AdminScreen>
+    </PageScreen>
   );
 }
 
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
   card: {
     gap: Spacing.one,
     padding: Spacing.three,
-    borderRadius: Spacing.three,
+    borderRadius: Shape.extraLarge,
   },
   actions: {
     flexDirection: 'row',

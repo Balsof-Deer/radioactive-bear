@@ -1,8 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, use, useEffect, useState, type PropsWithChildren } from 'react';
-import { Appearance } from 'react-native';
+import { getMaterialColors } from '@expo/ui/jetpack-compose';
+import { createContext, use, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
+import { Appearance, useColorScheme } from 'react-native';
 
-import { DEFAULT_ACCENT } from '@/constants/theme';
+import { DEFAULT_ACCENT, paletteFromMaterial, WALLPAPER_ACCENT, type ThemePalette } from '@/constants/theme';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 
@@ -11,7 +12,12 @@ const ACCENT_KEY = 'themeAccent';
 
 type ThemePreferenceValue = {
   mode: ThemeMode;
+  // A hex color, or WALLPAPER_ACCENT for Android's wallpaper colors.
   accent: string;
+  // The full Material 3 color scheme for the current accent and mode.
+  palette: ThemePalette;
+  // Seed for native @expo/ui Host views; undefined means wallpaper colors.
+  seedColor: string | undefined;
   isReady: boolean;
   setMode: (mode: ThemeMode) => void;
   setAccent: (accent: string) => void;
@@ -42,6 +48,15 @@ export function ThemePreferenceProvider({ children }: PropsWithChildren) {
   const [mode, setModeState] = useState<ThemeMode>('system');
   const [accent, setAccentState] = useState(DEFAULT_ACCENT);
   const [isReady, setIsReady] = useState(false);
+  const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
+  const seedColor = accent === WALLPAPER_ACCENT ? undefined : accent;
+
+  // Generated natively (SchemeTonalSpot, as Material You uses), once per
+  // accent/mode change rather than in every component that reads colors.
+  const palette = useMemo(
+    () => paletteFromMaterial(getMaterialColors({ scheme, seedColor })),
+    [scheme, seedColor]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -70,6 +85,8 @@ export function ThemePreferenceProvider({ children }: PropsWithChildren) {
   const value: ThemePreferenceValue = {
     mode,
     accent,
+    palette,
+    seedColor,
     isReady,
     setMode(nextMode) {
       setModeState(nextMode);

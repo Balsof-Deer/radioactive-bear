@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BackButton } from '@/components/back-button';
 import { ReviewForm } from '@/components/review-form';
 import { StarRating } from '@/components/star-rating';
 import { TagPicker } from '@/components/tag-picker';
@@ -12,7 +13,7 @@ import { ThemedButton } from '@/components/themed-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedTextInput } from '@/components/themed-text-input';
 import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { MaxContentWidth, Shape, Spacing } from '@/constants/theme';
 import { useSession } from '@/lib/auth-context';
 import { LOCATION_STATUS_COLOR, LOCATION_STATUS_LABEL } from '@/lib/location-status';
 import {
@@ -104,7 +105,7 @@ export default function LocationDetailScreen() {
 
   const isAdmin = profile?.role === 'admin';
   const myUserId = session?.user.id;
-  const isOwner = location?.submitted_by === myUserId;
+  const isOwner = !!myUserId && location?.submitted_by === myUserId;
   const canEditLocation =
     !!location && (isAdmin || (isOwner && location.status !== 'approved_admin' && location.status !== 'rejected'));
   const canAddPhotos = !!location && (isAdmin || isOwner);
@@ -260,11 +261,17 @@ export default function LocationDetailScreen() {
 
   if (loadError || !location) {
     return (
-      <ThemedView style={styles.centered}>
-        <ThemedText themeColor="danger" style={styles.centerText}>
-          {loadError ?? 'Location not found.'}
-        </ThemedText>
-        <ThemedButton label="Back" variant="secondary" onPress={() => router.back()} />
+      <ThemedView style={styles.container}>
+        <SafeAreaView style={styles.safeArea}>
+          <View style={styles.errorHeader}>
+            <BackButton />
+          </View>
+          <ThemedView style={styles.centered}>
+            <ThemedText themeColor="danger" style={styles.centerText}>
+              {loadError ?? 'Location not found.'}
+            </ThemedText>
+          </ThemedView>
+        </SafeAreaView>
       </ThemedView>
     );
   }
@@ -279,7 +286,7 @@ export default function LocationDetailScreen() {
           keyboardDismissMode="on-drag">
           <View style={styles.content}>
           <ThemedView style={styles.backButtonWrapper}>
-            <ThemedButton label="Back" variant="secondary" onPress={() => router.back()} />
+            <BackButton />
           </ThemedView>
 
           {!isEditingLocation && (
@@ -443,12 +450,12 @@ export default function LocationDetailScreen() {
             )}
             {reviews.map((review) => {
               // Only the author may edit; admins may also delete (enforced by RLS).
-              const isMine = review.user_id === myUserId;
+              const isMine = !!myUserId && review.user_id === myUserId;
               const canDelete = isMine || isAdmin;
               return (
                 <ThemedView key={review.id} type="backgroundElement" style={styles.reviewCard}>
                   <ThemedView type="backgroundElement" style={styles.reviewHeader}>
-                    <ThemedText type="smallBold">{review.reviewer_display_name ?? 'Student'}</ThemedText>
+                    <ThemedText type="smallBold">{review.user_id === null ? 'Deleted user' : (review.reviewer_display_name ?? 'Student')}</ThemedText>
                     <StarRating value={review.overall_rating} />
                   </ThemedView>
                   {review.body && <ThemedText type="small">{review.body}</ThemedText>}
@@ -502,6 +509,10 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
     paddingHorizontal: Spacing.four,
   },
+  errorHeader: {
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.two,
+  },
   centerText: {
     textAlign: 'center',
   },
@@ -531,7 +542,7 @@ const styles = StyleSheet.create({
   editLocationForm: {
     gap: Spacing.two,
     padding: Spacing.three,
-    borderRadius: Spacing.three,
+    borderRadius: Shape.extraLarge,
   },
   editLocationMultiline: {
     minHeight: 80,
@@ -559,7 +570,7 @@ const styles = StyleSheet.create({
   reviewCard: {
     gap: Spacing.half,
     padding: Spacing.three,
-    borderRadius: Spacing.three,
+    borderRadius: Shape.extraLarge,
   },
   reviewHeader: {
     flexDirection: 'row',

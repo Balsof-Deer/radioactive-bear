@@ -6,7 +6,7 @@ import { ThemedButton } from '@/components/themed-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedTextInput } from '@/components/themed-text-input';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Shape, Spacing } from '@/constants/theme';
 import type { RatingCategory, ReviewFormValues } from '@/lib/reviews';
 
 type ReviewFormProps = {
@@ -78,7 +78,7 @@ const styles = StyleSheet.create({
   form: {
     gap: Spacing.two,
     padding: Spacing.three,
-    borderRadius: Spacing.three,
+    borderRadius: Shape.extraLarge,
   },
   categoryRow: {
     flexDirection: 'row',

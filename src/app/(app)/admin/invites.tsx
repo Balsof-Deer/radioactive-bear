@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet } from 'react-native';
 
-import { AdminScreen } from '@/components/admin-screen';
+import { PageScreen } from '@/components/page-screen';
 import { ThemedButton } from '@/components/themed-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedTextInput } from '@/components/themed-text-input';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Shape, Spacing } from '@/constants/theme';
 import { createInvite, fetchInvites, type AdminInvite } from '@/lib/admin';
 
 function inviteStatus(invite: AdminInvite): { label: string; color: 'textSecondary' | 'tint' | 'danger' } {
@@ -56,7 +56,7 @@ export default function InvitesScreen() {
   }
 
   return (
-    <AdminScreen title="Admin invites" isLoading={isLoading} error={error}>
+    <PageScreen title="Admin invites" isLoading={isLoading} error={error}>
       <ThemedView type="backgroundElement" style={styles.card}>
         <ThemedText type="smallBold">Create an invite</ThemedText>
         <ThemedText themeColor="textSecondary" type="small">
@@ -106,7 +106,7 @@ export default function InvitesScreen() {
           </ThemedView>
         );
       })}
-    </AdminScreen>
+    </PageScreen>
   );
 }
 
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
   card: {
     gap: Spacing.two,
     padding: Spacing.three,
-    borderRadius: Spacing.three,
+    borderRadius: Shape.extraLarge,
   },
   row: {
     flexDirection: 'row',

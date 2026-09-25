@@ -1,3 +1,4 @@
+import { isDynamicColorAvailable } from '@expo/ui/jetpack-compose';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import ColorPicker, { HueCircular, Panel1 } from 'reanimated-color-picker';
@@ -5,7 +6,7 @@ import ColorPicker, { HueCircular, Panel1 } from 'reanimated-color-picker';
 import { ThemedButton } from '@/components/themed-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { ACCENT_PRESETS, Spacing } from '@/constants/theme';
+import { ACCENT_PRESETS, DEFAULT_ACCENT, Shape, Spacing, WALLPAPER_ACCENT } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useThemePreference, type ThemeMode } from '@/lib/theme-preference';
 
@@ -25,12 +26,14 @@ export function AppearanceSettings({ onPickingChange }: AppearanceSettingsProps)
   const theme = useTheme();
   const { mode, setMode, accent, setAccent } = useThemePreference();
   const [isPicking, setIsPicking] = useState(false);
-  const [draft, setDraft] = useState(accent);
+  const isWallpaper = accent === WALLPAPER_ACCENT;
+  const [draft, setDraft] = useState(isWallpaper ? DEFAULT_ACCENT : accent);
 
-  const isCustom = !ACCENT_PRESETS.some((preset) => preset.value.toLowerCase() === accent.toLowerCase());
+  const isCustom =
+    !isWallpaper && !ACCENT_PRESETS.some((preset) => preset.value.toLowerCase() === accent.toLowerCase());
 
   function openPicker() {
-    setDraft(accent);
+    setDraft(isWallpaper ? DEFAULT_ACCENT : accent);
     setIsPicking(true);
     onPickingChange(true);
   }
@@ -104,6 +107,26 @@ export function AppearanceSettings({ onPickingChange }: AppearanceSettingsProps)
         </Pressable>
       </View>
 
+      {/* Material You colors from the wallpaper need Android 12 or newer. */}
+      {isDynamicColorAvailable && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ selected: isWallpaper }}
+          onPress={() => setAccent(WALLPAPER_ACCENT)}
+          style={[
+            styles.wallpaperChip,
+            isWallpaper
+              ? { backgroundColor: theme.secondaryContainer, borderColor: theme.secondaryContainer }
+              : { borderColor: theme.outline },
+          ]}>
+          <ThemedText
+            type="smallBold"
+            style={{ color: isWallpaper ? theme.onSecondaryContainer : theme.onSurfaceVariant }}>
+            Use wallpaper colors
+          </ThemedText>
+        </Pressable>
+      )}
+
       {isPicking && (
         <ThemedView type="backgroundElement" style={styles.pickerCard}>
           <ColorPicker value={draft} onCompleteJS={(colors) => setDraft(colors.hex)} style={styles.picker}>
@@ -156,10 +179,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  wallpaperChip: {
+    alignSelf: 'flex-start',
+    minHeight: 32,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.three,
+    borderRadius: Shape.small,
+    borderWidth: 1,
+  },
   pickerCard: {
     gap: Spacing.three,
     padding: Spacing.three,
-    borderRadius: Spacing.three,
+    borderRadius: Shape.extraLarge,
   },
   picker: {
     width: '80%',
