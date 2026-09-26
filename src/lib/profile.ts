@@ -1,7 +1,7 @@
 import * as Crypto from 'expo-crypto';
 import { File } from 'expo-file-system';
 
-import { extensionFromUri } from '@/lib/storage';
+import { prepareImageForUpload } from '@/lib/image-privacy';
 import { supabase } from '@/lib/supabase';
 
 const AVATARS_BUCKET = 'avatars';
@@ -30,13 +30,14 @@ export async function getAvatarUrl(avatarPath: string): Promise<string | null> {
 // Uploads the new photo under the user's own folder, points the profile
 // at it, then removes the previous file.
 export async function uploadAvatar(userId: string, localUri: string, previousPath: string | null): Promise<void> {
-  const extension = extensionFromUri(localUri);
-  const bytes = await new File(localUri).bytes();
-  const path = `${userId}/${Crypto.randomUUID()}.${extension}`;
+  // Removes location/EXIF metadata (profile photos are often taken at
+  // home) and uses the real image type.
+  const image = prepareImageForUpload(await new File(localUri).bytes());
+  const path = `${userId}/${Crypto.randomUUID()}.${image.extension}`;
 
   const { error: uploadError } = await supabase.storage
     .from(AVATARS_BUCKET)
-    .upload(path, bytes, { contentType: `image/${extension}` });
+    .upload(path, image.bytes, { contentType: image.contentType });
   if (uploadError) {
     throw new Error(uploadError.message);
   }

@@ -1,23 +1,19 @@
 import { File } from 'expo-file-system';
 import * as Crypto from 'expo-crypto';
 
+import { prepareImageForUpload } from '@/lib/image-privacy';
 import { supabase } from '@/lib/supabase';
 
 const LOCATION_PHOTOS_BUCKET = 'location-photos';
 
-export function extensionFromUri(uri: string): string {
-  const match = /\.([a-zA-Z0-9]+)$/.exec(uri);
-  return match ? match[1].toLowerCase() : 'jpg';
-}
-
 export async function uploadLocationPhoto(locationId: string, localUri: string): Promise<string> {
-  const file = new File(localUri);
-  const bytes = await file.bytes();
-  const path = `${locationId}/${Crypto.randomUUID()}.${extensionFromUri(localUri)}`;
+  // Removes location/EXIF metadata and uses the real image type.
+  const image = prepareImageForUpload(await new File(localUri).bytes());
+  const path = `${locationId}/${Crypto.randomUUID()}.${image.extension}`;
 
   const { error } = await supabase.storage
     .from(LOCATION_PHOTOS_BUCKET)
-    .upload(path, bytes, { contentType: `image/${extensionFromUri(localUri)}` });
+    .upload(path, image.bytes, { contentType: image.contentType });
 
   if (error) {
     throw new Error(error.message);
