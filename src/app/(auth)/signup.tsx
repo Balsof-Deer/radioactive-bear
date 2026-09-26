@@ -1,7 +1,6 @@
 import { router } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { AuthScreenLayout } from '@/components/auth-screen-layout';
 import { LabeledField } from '@/components/labeled-field';
@@ -10,22 +9,18 @@ import { PasswordInput } from '@/components/password-input';
 import { ThemedButton } from '@/components/themed-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedTextInput } from '@/components/themed-text-input';
-import { Radius, Spacing, Typography } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Spacing } from '@/constants/theme';
 import { useSession } from '@/lib/auth-context';
 import { isStrongPassword } from '@/lib/password-rules';
 import { useErrorState } from '@/lib/toast';
 
 export default function SignupScreen() {
-  const theme = useTheme();
-  const { fontScale } = useWindowDimensions();
   const { signUp } = useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [, setError] = useErrorState();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [didSubmit, setDidSubmit] = useState(false);
 
   async function handleSubmit() {
     setError(null);
@@ -47,32 +42,13 @@ export default function SignupScreen() {
       setError(signUpError);
       return;
     }
-    setDidSubmit(true);
+    // Supabase has emailed a confirmation code (see the "Confirm signup"
+    // email template); the code screen finishes sign-up.
+    router.replace({ pathname: '/(auth)/verify', params: { email: email.trim() } });
   }
 
   const canSubmit =
     email.trim().length > 0 && isStrongPassword(password) && confirmPassword.length > 0 && !isSubmitting;
-
-  if (didSubmit) {
-    return (
-      <AuthScreenLayout>
-        <View style={[styles.mailIcon, { backgroundColor: theme.primaryContainer }]}>
-          <SymbolView
-            name={{ android: 'mark_email_unread', web: 'mark_email_unread' }}
-            size={Typography.display.lineHeight * fontScale}
-            tintColor={theme.onPrimaryContainer}
-          />
-        </View>
-        <View style={styles.heading}>
-          <ThemedText type="title">Check your email</ThemedText>
-          <ThemedText themeColor="textSecondary">
-            We sent a confirmation link to {email.trim()}. Confirm your email, then log in.
-          </ThemedText>
-        </View>
-        <ThemedButton label="Back to log in" onPress={() => router.replace('/(auth)/login')} />
-      </AuthScreenLayout>
-    );
-  }
 
   return (
     <AuthScreenLayout>
@@ -139,10 +115,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-  },
-  mailIcon: {
-    alignSelf: 'flex-start',
-    padding: Spacing.three,
-    borderRadius: Radius.full,
   },
 });

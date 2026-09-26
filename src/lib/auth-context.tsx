@@ -16,7 +16,9 @@ export type Profile = {
   updated_at: string;
 };
 
-type AuthResult = { error: string | null };
+// `code` is Supabase's machine-readable error code (e.g.
+// 'email_not_confirmed'), for callers that need to react to specific cases.
+type AuthResult = { error: string | null; code?: string };
 
 type AuthContextValue = {
   session: Session | null;
@@ -25,6 +27,10 @@ type AuthContextValue = {
   signIn: (email: string, password: string) => Promise<AuthResult>;
   signUp: (email: string, password: string) => Promise<AuthResult>;
   signOut: () => Promise<void>;
+  // Sign-up confirmation by emailed code (the "Confirm signup" email
+  // template shows {{ .Token }} instead of a link).
+  verifySignUpCode: (email: string, code: string) => Promise<AuthResult>;
+  resendSignUpCode: (email: string) => Promise<AuthResult>;
   refreshProfile: () => Promise<void>;
 };
 
@@ -80,7 +86,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     isLoading,
     async signIn(email, password) {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      return { error: error?.message ?? null };
+      return { error: error?.message ?? null, code: error?.code };
     },
     async signUp(email, password) {
       const { error } = await supabase.auth.signUp({ email, password });
@@ -88,6 +94,16 @@ export function AuthProvider({ children }: PropsWithChildren) {
     },
     async signOut() {
       await supabase.auth.signOut();
+    },
+    // A correct code confirms the account and signs in; the auth listener
+    // then switches the app to the signed-in screens.
+    async verifySignUpCode(email, code) {
+      const { error } = await supabase.auth.verifyOtp({ email, token: code, type: 'email' });
+      return { error: error?.message ?? null, code: error?.code };
+    },
+    async resendSignUpCode(email) {
+      const { error } = await supabase.auth.resend({ type: 'signup', email });
+      return { error: error?.message ?? null, code: error?.code };
     },
     async refreshProfile() {
       if (!session) return;

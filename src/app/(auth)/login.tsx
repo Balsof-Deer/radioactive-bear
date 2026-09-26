@@ -13,7 +13,7 @@ import { useSession } from '@/lib/auth-context';
 import { useErrorState } from '@/lib/toast';
 
 export default function LoginScreen() {
-  const { signIn } = useSession();
+  const { signIn, resendSignUpCode } = useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [, setError] = useErrorState();
@@ -22,7 +22,19 @@ export default function LoginScreen() {
   async function handleSubmit() {
     setError(null);
     setIsSubmitting(true);
-    const { error: signInError } = await signIn(email.trim(), password);
+    const { error: signInError, code } = await signIn(email.trim(), password);
+    if (code === 'email_not_confirmed') {
+      // Signed up but never entered the code: send a fresh one and go
+      // straight to the code screen instead of showing an error.
+      const { error: resendError } = await resendSignUpCode(email.trim());
+      setIsSubmitting(false);
+      if (resendError) {
+        setError(resendError);
+        return;
+      }
+      router.push({ pathname: '/(auth)/verify', params: { email: email.trim() } });
+      return;
+    }
     setIsSubmitting(false);
     if (signInError) {
       setError(signInError);
