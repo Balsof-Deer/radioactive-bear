@@ -14,9 +14,10 @@ import { scheduleOnRN } from 'react-native-worklets';
 import { useTheme } from '@/hooks/use-theme';
 
 // Must match app.json's expo-splash-screen "imageWidth": the native splash
-// draws splash-icon.png at this width, with the mark filling 62% of it.
+// draws splash-icon.png at this width, with the mark filling 56% of it
+// (scripts/generate-logo-assets.py).
 const NATIVE_SPLASH_IMAGE_WIDTH = 200;
-const MARK_SIZE = NATIVE_SPLASH_IMAGE_WIDTH * 0.62;
+const MARK_SIZE = NATIVE_SPLASH_IMAGE_WIDTH * 0.56;
 const DURATION = 450;
 
 // Continues the native launch screen seamlessly (same background, same
