@@ -77,60 +77,33 @@ export async function fetchReviews(locationId: string): Promise<ReviewWithRating
   }));
 }
 
-async function saveCategoryScores(reviewId: string, categoryScores: Record<string, number>) {
-  const rows = Object.entries(categoryScores)
-    .filter(([, score]) => score > 0)
-    .map(([categoryId, score]) => ({ review_id: reviewId, category_id: categoryId, score }));
-
-  if (rows.length === 0) return;
-
-  const { error } = await supabase.from('review_ratings').insert(rows);
+// Both create and edit go through the save_review database function
+// (migration 0013), which writes the review and its category scores in
+// one transaction: if anything fails, nothing is saved.
+async function saveReview(
+  locationId: string | null,
+  existingReviewId: string | null,
+  input: ReviewFormValues
+): Promise<void> {
+  const { error } = await supabase.rpc('save_review', {
+    target_location_id: locationId,
+    existing_review_id: existingReviewId,
+    overall_score: input.overallRating,
+    review_body: input.body,
+    // Only rated categories are in the record (0 is a valid rating).
+    scores: input.categoryScores,
+  });
   if (error) {
     throw new Error(error.message);
   }
 }
 
 export async function createReview(locationId: string, input: ReviewFormValues): Promise<void> {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const userId = sessionData.session?.user.id;
-  if (!userId) {
-    throw new Error('You must be signed in to leave a review.');
-  }
-
-  const { data, error } = await supabase
-    .from('reviews')
-    .insert({
-      location_id: locationId,
-      user_id: userId,
-      overall_rating: input.overallRating,
-      body: input.body || null,
-    })
-    .select('id')
-    .single();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  await saveCategoryScores(data.id as string, input.categoryScores);
+  await saveReview(locationId, null, input);
 }
 
 export async function updateReview(reviewId: string, input: ReviewFormValues): Promise<void> {
-  const { error } = await supabase
-    .from('reviews')
-    .update({ overall_rating: input.overallRating, body: input.body || null })
-    .eq('id', reviewId);
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const { error: deleteError } = await supabase.from('review_ratings').delete().eq('review_id', reviewId);
-  if (deleteError) {
-    throw new Error(deleteError.message);
-  }
-
-  await saveCategoryScores(reviewId, input.categoryScores);
+  await saveReview(null, reviewId, input);
 }
 
 export async function deleteReview(reviewId: string): Promise<void> {

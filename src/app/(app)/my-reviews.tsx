@@ -1,13 +1,13 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { PageScreen } from '@/components/page-screen';
-import { StarRating } from '@/components/star-rating';
 import { ThemedText } from '@/components/themed-text';
-import { Shape, Spacing, withAlpha } from '@/constants/theme';
+import { Spacing, withAlpha } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useSession } from '@/lib/auth-context';
+import { formatRating } from '@/lib/rating';
 import { fetchMyReviews, type MyReview } from '@/lib/reviews';
 
 export default function MyReviewsScreen() {
@@ -44,32 +44,53 @@ export default function MyReviewsScreen() {
         </ThemedText>
       )}
 
-      {reviews.map((review) => (
-        // Tapping a review opens its location, where it can be edited.
-        <Pressable
-          key={review.id}
-          accessibilityRole="button"
-          accessibilityHint="Opens this location"
-          onPress={() => router.push(`/location/${review.location_id}`)}
-          android_ripple={{ color: withAlpha(theme.onSurface, 0.1), foreground: true }}
-          style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
-          <ThemedText type="smallBold">{review.location_name ?? 'Unknown location'}</ThemedText>
-          <StarRating value={review.overall_rating} size={16} />
-          {review.body && <ThemedText type="small">{review.body}</ThemedText>}
-          <ThemedText themeColor="textSecondary" type="small">
-            {new Date(review.created_at).toLocaleDateString()}
-          </ThemedText>
-        </Pressable>
-      ))}
+      <View>
+        {reviews.map((review, index) => (
+          // Tapping a review opens its location, where it can be edited.
+          <Pressable
+            key={review.id}
+            accessibilityRole="button"
+            accessibilityHint="Opens this location"
+            onPress={() => router.push(`/location/${review.location_id}`)}
+            android_ripple={{ color: withAlpha(theme.onSurface, 0.1) }}
+            style={[
+              styles.row,
+              index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderColor: theme.outlineVariant },
+            ]}>
+            <View style={styles.titleRow}>
+              <ThemedText type="heading" style={styles.name}>
+                {review.location_name ?? 'Unknown location'}
+              </ThemedText>
+              <ThemedText type="heading" accessibilityLabel={`You rated it ${formatRating(review.overall_rating)} out of 5`}>
+                {formatRating(review.overall_rating)}
+              </ThemedText>
+            </View>
+            {review.body && (
+              <ThemedText type="small" numberOfLines={3}>
+                {review.body}
+              </ThemedText>
+            )}
+            <ThemedText type="label" themeColor="textSecondary">
+              {new Date(review.created_at).toLocaleDateString()}
+            </ThemedText>
+          </Pressable>
+        ))}
+      </View>
     </PageScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
+  row: {
     gap: Spacing.one,
-    padding: Spacing.three,
-    borderRadius: Shape.extraLarge,
-    overflow: 'hidden',
+    paddingVertical: Spacing.three,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: Spacing.two,
+  },
+  name: {
+    flex: 1,
   },
 });

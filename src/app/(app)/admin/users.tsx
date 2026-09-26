@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
+import { EmptyState } from '@/components/empty-state';
 import { PageScreen } from '@/components/page-screen';
+import { StatusPill } from '@/components/status-pill';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Shape, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { fetchUsers, type AdminUser } from '@/lib/admin';
 import { useAdminBadges } from '@/lib/admin-badges';
 
 export default function UsersScreen() {
+  const theme = useTheme();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -42,50 +45,59 @@ export default function UsersScreen() {
 
   return (
     <PageScreen title="Users" isLoading={isLoading} error={error}>
-      {!isLoading && (
+      {!isLoading && users.length > 0 && (
         <ThemedText themeColor="textSecondary" type="small">
           {users.length} account{users.length === 1 ? '' : 's'}, {adminCount} admin
           {adminCount === 1 ? '' : 's'}. New admins are added with invite codes.
         </ThemedText>
       )}
 
-      {users.map((user) => (
-        <ThemedView key={user.id} type="backgroundElement" style={styles.card}>
-          <ThemedView type="backgroundElement" style={styles.row}>
-            <ThemedText type="smallBold" style={styles.name}>
-              {user.display_name ?? user.email}
+      {!isLoading && users.length === 0 && <EmptyState icon="group" message="No users yet" />}
+
+      <View>
+        {users.map((user, index) => (
+          <View
+            key={user.id}
+            style={[
+              styles.item,
+              index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderColor: theme.outlineVariant },
+            ]}>
+            <View style={styles.titleRow}>
+              <ThemedText type="heading" style={styles.name}>
+                {user.display_name ?? user.email}
+              </ThemedText>
+              {user.role === 'admin' ? (
+                <StatusPill label="Admin" color="onPrimaryContainer" containerColor="primaryContainer" />
+              ) : (
+                <StatusPill label="Student" color="onSurfaceVariant" containerColor="surfaceContainerLow" />
+              )}
+            </View>
+            {user.display_name && (
+              <ThemedText type="small" themeColor="textSecondary">
+                {user.email}
+              </ThemedText>
+            )}
+            <ThemedText type="label" themeColor="textSecondary">
+              Joined {new Date(user.created_at).toLocaleDateString()}
             </ThemedText>
-            <ThemedText type="small" themeColor={user.role === 'admin' ? 'tint' : 'textSecondary'}>
-              {user.role === 'admin' ? 'Admin' : 'Student'}
-            </ThemedText>
-          </ThemedView>
-          {user.display_name && (
-            <ThemedText themeColor="textSecondary" type="small">
-              {user.email}
-            </ThemedText>
-          )}
-          <ThemedText themeColor="textSecondary" type="small">
-            Joined {new Date(user.created_at).toLocaleDateString()}
-          </ThemedText>
-        </ThemedView>
-      ))}
+          </View>
+        ))}
+      </View>
     </PageScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    gap: Spacing.half,
-    padding: Spacing.three,
-    borderRadius: Shape.extraLarge,
+  item: {
+    gap: Spacing.one,
+    paddingVertical: Spacing.three,
   },
-  row: {
+  titleRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     gap: Spacing.two,
   },
   name: {
-    flexShrink: 1,
+    flex: 1,
   },
 });

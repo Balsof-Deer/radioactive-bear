@@ -1,9 +1,8 @@
-import { Pressable, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { RADIUS_OPTIONS_KM } from '@/constants/map';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 type RadiusSelectorProps = {
@@ -11,43 +10,54 @@ type RadiusSelectorProps = {
   onChange: (radiusKm: number) => void;
 };
 
+// Compact segmented control (same look as Appearance): cream track, sage
+// selection. Segment height is relative to text size (44 at default).
 export function RadiusSelector({ value, onChange }: RadiusSelectorProps) {
   const theme = useTheme();
+  const { fontScale } = useWindowDimensions();
+  const lineHeight = Typography.bodyMediumBold.lineHeight * fontScale;
 
   return (
-    <ThemedView type="backgroundElement" style={styles.container}>
+    <View
+      accessibilityRole="radiogroup"
+      accessibilityLabel="Search radius"
+      style={[styles.track, { backgroundColor: theme.surfaceContainerLow, borderColor: theme.outlineVariant }]}>
       {RADIUS_OPTIONS_KM.map((radiusKm) => {
         const selected = radiusKm === value;
         return (
           <Pressable
             key={radiusKm}
-            accessibilityRole="button"
+            accessibilityRole="radio"
             accessibilityState={{ selected }}
+            accessibilityLabel={`${radiusKm} kilometres`}
             onPress={() => onChange(radiusKm)}
-            style={[styles.pill, selected && { backgroundColor: theme.tint }]}>
-            <ThemedText
-              type="smallBold"
-              style={selected ? { color: theme.onTint } : undefined}
-              themeColor={selected ? undefined : 'textSecondary'}>
+            style={[
+              styles.segment,
+              { minHeight: lineHeight * 2, paddingHorizontal: lineHeight * 0.7 },
+              selected && { backgroundColor: theme.primaryContainer },
+            ]}>
+            <ThemedText type="smallBold" style={{ color: selected ? theme.onPrimaryContainer : theme.onSurfaceVariant }}>
               {radiusKm} km
             </ThemedText>
           </Pressable>
         );
       })}
-    </ThemedView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  track: {
     flexDirection: 'row',
-    borderRadius: Spacing.five,
+    alignSelf: 'center',
+    borderRadius: Radius.full,
+    borderWidth: 1,
     padding: Spacing.half,
     gap: Spacing.half,
   },
-  pill: {
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    borderRadius: Spacing.five,
+  segment: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: Radius.full,
   },
 });

@@ -1,20 +1,22 @@
-import { Link } from 'expo-router';
+import { router } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { AuthScreenLayout } from '@/components/auth-screen-layout';
+import { LabeledField } from '@/components/labeled-field';
+import { PasswordInput } from '@/components/password-input';
 import { ThemedButton } from '@/components/themed-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedTextInput } from '@/components/themed-text-input';
-import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useSession } from '@/lib/auth-context';
+import { useErrorState } from '@/lib/toast';
 
 export default function LoginScreen() {
   const { signIn } = useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const [, setError] = useErrorState();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleSubmit() {
@@ -31,65 +33,57 @@ export default function LoginScreen() {
 
   return (
     <AuthScreenLayout>
-      <ThemedText type="title" style={styles.title}>
-        Welcome back
-      </ThemedText>
-      <ThemedText themeColor="textSecondary" style={styles.subtitle}>
-        Log in to find and review places near you.
-      </ThemedText>
+      <View style={styles.heading}>
+        <ThemedText type="title">Welcome back</ThemedText>
+        <ThemedText themeColor="textSecondary">Log in to find and review places near you.</ThemedText>
+      </View>
 
-      <ThemedView style={styles.fields}>
-        <ThemedTextInput
-          placeholder="Email"
-          keyboardType="email-address"
-          textContentType="emailAddress"
-          value={email}
-          onChangeText={setEmail}
-        />
-        <ThemedTextInput
-          placeholder="Password"
-          secureTextEntry
-          textContentType="password"
-          value={password}
-          onChangeText={setPassword}
-        />
-      </ThemedView>
-
-      {error && (
-        <ThemedText themeColor="danger" type="small">
-          {error}
-        </ThemedText>
-      )}
+      <View style={styles.fields}>
+        <LabeledField label="Email">
+          <ThemedTextInput
+            placeholder="you@example.com"
+            keyboardType="email-address"
+            textContentType="emailAddress"
+            autoComplete="email"
+            value={email}
+            onChangeText={setEmail}
+            accessibilityLabel="Email"
+          />
+        </LabeledField>
+        <LabeledField label="Password">
+          <PasswordInput
+            placeholder="Your password"
+            textContentType="password"
+            autoComplete="current-password"
+            value={password}
+            onChangeText={setPassword}
+            accessibilityLabel="Password"
+          />
+        </LabeledField>
+      </View>
 
       <ThemedButton label="Log in" onPress={handleSubmit} disabled={!canSubmit} loading={isSubmitting} />
 
-      <ThemedView style={styles.footer}>
+      <View style={styles.footer}>
         <ThemedText themeColor="textSecondary" type="small">
           Don&apos;t have an account?
         </ThemedText>
-        <Link href="/(auth)/signup" replace>
-          <ThemedText type="linkPrimary">Sign up</ThemedText>
-        </Link>
-      </ThemedView>
+        <ThemedButton label="Sign up" variant="text" onPress={() => router.replace('/(auth)/signup')} />
+      </View>
     </AuthScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  title: {
-    fontSize: 32,
-    lineHeight: 38,
-  },
-  subtitle: {
-    marginBottom: Spacing.two,
+  heading: {
+    gap: Spacing.one,
   },
   fields: {
-    gap: Spacing.two,
+    gap: Spacing.three,
   },
   footer: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    gap: Spacing.one,
+    flexWrap: 'wrap',
   },
 });

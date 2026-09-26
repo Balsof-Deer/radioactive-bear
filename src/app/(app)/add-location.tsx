@@ -13,11 +13,12 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedTextInput } from '@/components/themed-text-input';
 import { ThemedView } from '@/components/themed-view';
 import { MAP_STYLE_URL } from '@/constants/map';
-import { Shape, Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { addLocationPhotoRecord, createLocation } from '@/lib/locations';
 import { uploadLocationPhoto } from '@/lib/storage';
 import { fetchTags, setLocationTags, type Tag } from '@/lib/tags';
+import { useErrorState } from '@/lib/toast';
 
 const MAX_PHOTOS = 5;
 
@@ -35,7 +36,7 @@ export default function AddLocationScreen() {
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [, setError] = useErrorState();
   const [didSubmit, setDidSubmit] = useState(false);
 
   useEffect(() => {
@@ -227,11 +228,6 @@ export default function AddLocationScreen() {
               </ScrollView>
             </ThemedView>
 
-            {error && (
-              <ThemedText themeColor="danger" type="small">
-                {error}
-              </ThemedText>
-            )}
 
             <ThemedButton label="Submit" onPress={handleSubmit} loading={isSubmitting} disabled={isSubmitting} />
             <ThemedButton
@@ -281,7 +277,7 @@ const styles = StyleSheet.create({
   },
   mapPreview: {
     height: 280,
-    borderRadius: Shape.extraLarge,
+    borderRadius: Radius.lg,
     overflow: 'hidden',
   },
   map: {

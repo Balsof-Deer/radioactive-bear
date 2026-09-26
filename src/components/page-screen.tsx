@@ -1,11 +1,13 @@
 import type { PropsWithChildren } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BackButton } from '@/components/back-button';
+import { Loading } from '@/components/loading';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useErrorToast } from '@/lib/toast';
 
 type PageScreenProps = PropsWithChildren<{
   title: string;
@@ -14,6 +16,7 @@ type PageScreenProps = PropsWithChildren<{
 }>;
 
 export function PageScreen({ title, isLoading, error, children }: PageScreenProps) {
+  useErrorToast(error);
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
@@ -27,12 +30,7 @@ export function PageScreen({ title, isLoading, error, children }: PageScreenProp
               {title}
             </ThemedText>
           </ThemedView>
-          {isLoading && <ActivityIndicator style={styles.loading} />}
-          {error && (
-            <ThemedText themeColor="danger" type="small">
-              {error}
-            </ThemedText>
-          )}
+          {isLoading && <Loading style={styles.loading} />}
           {children}
         </ScrollView>
       </SafeAreaView>
@@ -51,8 +49,12 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
-    padding: Spacing.four,
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.two,
+    paddingBottom: Spacing.five,
     gap: Spacing.three,
+    // Fills the screen so an empty state can sit in the middle.
+    flexGrow: 1,
   },
   headerRow: {
     flexDirection: 'row',
@@ -63,6 +65,6 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   loading: {
-    alignSelf: 'flex-start',
+    alignSelf: 'center',
   },
 });

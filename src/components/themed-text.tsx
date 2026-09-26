@@ -4,7 +4,18 @@ import { Fonts, ThemeColor, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export type ThemedTextProps = TextProps & {
-  type?: 'default' | 'title' | 'small' | 'smallBold' | 'subtitle' | 'link' | 'linkPrimary' | 'code';
+  type?:
+    | 'default'
+    | 'title'
+    | 'subtitle'
+    | 'heading'
+    | 'small'
+    | 'smallBold'
+    | 'label'
+    | 'micro'
+    | 'link'
+    | 'linkPrimary'
+    | 'code';
   themeColor?: ThemeColor;
 };
 
@@ -17,9 +28,12 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
         { color: theme[themeColor ?? 'text'] },
         type === 'default' && styles.default,
         type === 'title' && styles.title,
+        type === 'subtitle' && styles.subtitle,
+        type === 'heading' && styles.heading,
         type === 'small' && styles.small,
         type === 'smallBold' && styles.smallBold,
-        type === 'subtitle' && styles.subtitle,
+        type === 'label' && styles.label,
+        type === 'micro' && styles.micro,
         type === 'link' && styles.link,
         type === 'linkPrimary' && [styles.link, { color: theme.primary }],
         type === 'code' && styles.code,
@@ -30,32 +44,25 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
   );
 }
 
-// Each app text style maps onto a Material 3 type-scale role. Headings and
-// bold labels use a heavier weight for Material 3 Expressive's emphasis.
+// Each app text style is a role from the spec's mobile type scale (Epilogue).
 const styles = StyleSheet.create({
-  default: {
-    ...Typography.bodyLarge,
-    fontWeight: 400,
-  },
-  small: {
-    ...Typography.bodyMedium,
-    fontWeight: 400,
-  },
-  smallBold: {
-    ...Typography.titleSmall,
-    fontWeight: 600,
-  },
-  title: {
-    ...Typography.displayMedium,
-    fontWeight: 600,
-  },
-  subtitle: {
-    ...Typography.headlineMedium,
-    fontWeight: 600,
-  },
-  link: {
-    ...Typography.bodyMedium,
-  },
+  // Screen titles, spot names, profile name.
+  title: Typography.display,
+  // Section headers.
+  subtitle: Typography.heading2,
+  // Card titles.
+  heading: Typography.heading3,
+  // Descriptions and review text.
+  default: Typography.bodyLarge,
+  // General body, addresses, metadata.
+  small: Typography.bodyMedium,
+  // Button labels and short emphasised text.
+  smallBold: Typography.bodyMediumBold,
+  // Badges, tags, status pills.
+  label: Typography.labelSmall,
+  // Map pin ratings and dense data.
+  micro: Typography.micro,
+  link: Typography.bodyMedium,
   code: {
     fontFamily: Fonts.mono,
     fontWeight: Platform.select({ android: 700 }) ?? 500,

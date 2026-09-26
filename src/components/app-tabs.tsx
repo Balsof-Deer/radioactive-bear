@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { useEffect, useRef } from 'react';
 
+import { Font } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useAdminBadges } from '@/lib/admin-badges';
 import { useSession } from '@/lib/auth-context';
@@ -24,9 +25,16 @@ export default function AppTabs() {
 
   return (
     <NativeTabs
+      // Spec tab bar: white surface, forest green when active, stone when not.
       backgroundColor={theme.surfaceContainer}
-      indicatorColor={theme.secondaryContainer}
-      labelStyle={{ selected: { color: theme.onSurface } }}>
+      indicatorColor={theme.primaryContainer}
+      iconColor={{ default: theme.textTertiary, selected: theme.primary }}
+      labelStyle={{
+        default: { color: theme.textTertiary, fontFamily: Font.semiBold },
+        selected: { color: theme.primary, fontFamily: Font.bold },
+      }}
+      badgeBackgroundColor={theme.error}
+      badgeTextColor={theme.onError}>
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon

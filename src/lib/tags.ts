@@ -31,7 +31,23 @@ export async function createTag(label: string): Promise<void> {
 
   const { error } = await supabase.from('tags').insert({ slug: slugify(trimmed), label: trimmed });
   if (error) {
-    throw new Error(error.message);
+    // 23505 = unique violation: the slug (from the name) already exists.
+    throw new Error(error.code === '23505' ? `There's already a tag called "${trimmed}".` : error.message);
+  }
+}
+
+// Renames a tag. Locations and preferences link to tags by id, so the new
+// name shows everywhere. The slug follows the name so the table's unique
+// slug still blocks two tags with the same name.
+export async function renameTag(tagId: string, label: string): Promise<void> {
+  const trimmed = label.trim();
+  if (!trimmed) {
+    throw new Error('Give the tag a name.');
+  }
+
+  const { error } = await supabase.from('tags').update({ slug: slugify(trimmed), label: trimmed }).eq('id', tagId);
+  if (error) {
+    throw new Error(error.code === '23505' ? `There's already a tag called "${trimmed}".` : error.message);
   }
 }
 

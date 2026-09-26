@@ -1,26 +1,22 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getMaterialColors } from '@expo/ui/jetpack-compose';
-import { createContext, use, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
+import { createContext, use, useEffect, useState, type PropsWithChildren } from 'react';
 import { Appearance, useColorScheme } from 'react-native';
 
-import { DEFAULT_ACCENT, paletteFromMaterial, WALLPAPER_ACCENT, type ThemePalette } from '@/constants/theme';
+import { Palettes, type ThemePalette } from '@/constants/theme';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 
 const MODE_KEY = 'themeMode';
-const ACCENT_KEY = 'themeAccent';
+// No longer used: the accent picker was removed in the Warm Academic
+// redesign. Cleared once so a stale value doesn't linger.
+const LEGACY_ACCENT_KEY = 'themeAccent';
 
 type ThemePreferenceValue = {
   mode: ThemeMode;
-  // A hex color, or WALLPAPER_ACCENT for Android's wallpaper colors.
-  accent: string;
-  // The full Material 3 color scheme for the current accent and mode.
+  // The fixed brand palette for the current light/dark mode.
   palette: ThemePalette;
-  // Seed for native @expo/ui Host views; undefined means wallpaper colors.
-  seedColor: string | undefined;
   isReady: boolean;
   setMode: (mode: ThemeMode) => void;
-  setAccent: (accent: string) => void;
 };
 
 const ThemePreferenceContext = createContext<ThemePreferenceValue | null>(null);
@@ -46,36 +42,25 @@ export function useThemePreference() {
 
 export function ThemePreferenceProvider({ children }: PropsWithChildren) {
   const [mode, setModeState] = useState<ThemeMode>('system');
-  const [accent, setAccentState] = useState(DEFAULT_ACCENT);
   const [isReady, setIsReady] = useState(false);
-  const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
-  const seedColor = accent === WALLPAPER_ACCENT ? undefined : accent;
-
-  // Generated natively (SchemeTonalSpot, as Material You uses), once per
-  // accent/mode change rather than in every component that reads colors.
-  const palette = useMemo(
-    () => paletteFromMaterial(getMaterialColors({ scheme, seedColor })),
-    [scheme, seedColor]
-  );
+  const palette = useColorScheme() === 'dark' ? Palettes.dark : Palettes.light;
 
   useEffect(() => {
     let cancelled = false;
 
-    Promise.all([AsyncStorage.getItem(MODE_KEY), AsyncStorage.getItem(ACCENT_KEY)])
-      .then(([storedMode, storedAccent]) => {
+    AsyncStorage.getItem(MODE_KEY)
+      .then((storedMode) => {
         if (cancelled) return;
         if (isThemeMode(storedMode)) {
           setModeState(storedMode);
           applyMode(storedMode);
-        }
-        if (storedAccent) {
-          setAccentState(storedAccent);
         }
       })
       .catch(() => undefined)
       .finally(() => {
         if (!cancelled) setIsReady(true);
       });
+    AsyncStorage.removeItem(LEGACY_ACCENT_KEY).catch(() => undefined);
 
     return () => {
       cancelled = true;
@@ -84,18 +69,12 @@ export function ThemePreferenceProvider({ children }: PropsWithChildren) {
 
   const value: ThemePreferenceValue = {
     mode,
-    accent,
     palette,
-    seedColor,
     isReady,
     setMode(nextMode) {
       setModeState(nextMode);
       applyMode(nextMode);
       AsyncStorage.setItem(MODE_KEY, nextMode).catch(() => undefined);
-    },
-    setAccent(nextAccent) {
-      setAccentState(nextAccent);
-      AsyncStorage.setItem(ACCENT_KEY, nextAccent).catch(() => undefined);
     },
   };
 

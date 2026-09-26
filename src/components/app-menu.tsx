@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ProfileAvatar } from '@/components/profile-avatar';
 import { ThemedText } from '@/components/themed-text';
-import { Shape, Spacing, Typography, withAlpha } from '@/constants/theme';
+import { Elevation, Radius, Spacing, Typography, withAlpha } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useSession } from '@/lib/auth-context';
 
@@ -57,7 +57,7 @@ export function AppMenu({ isOpen, onClose, blurTarget }: AppMenuProps) {
   const { profile, signOut } = useSession();
   const { width, fontScale } = useWindowDimensions();
   const panelWidth = width * PANEL_WIDTH_RATIO;
-  const lineHeight = Typography.labelLarge.lineHeight * fontScale;
+  const lineHeight = Typography.bodyMediumBold.lineHeight * fontScale;
 
   // 0 = closed, 1 = open.
   const progress = useSharedValue(0);
@@ -148,7 +148,7 @@ export function AppMenu({ isOpen, onClose, blurTarget }: AppMenuProps) {
           styles.panel,
           {
             width: panelWidth,
-            backgroundColor: theme.surfaceContainerLow,
+            backgroundColor: theme.surfaceContainer,
             paddingTop: insets.top + Spacing.three,
             paddingBottom: insets.bottom + Spacing.three,
           },
@@ -156,7 +156,7 @@ export function AppMenu({ isOpen, onClose, blurTarget }: AppMenuProps) {
         ]}>
         <View style={styles.header}>
           <ProfileAvatar profile={profile} scale={2.5} />
-          <ThemedText style={Typography.titleMedium} numberOfLines={1}>
+          <ThemedText type="heading" numberOfLines={1}>
             {profile?.display_name || 'Your account'}
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
@@ -222,8 +222,9 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     paddingHorizontal: Spacing.two,
-    borderTopRightRadius: Shape.large,
-    borderBottomRightRadius: Shape.large,
+    borderTopRightRadius: Radius.xl,
+    borderBottomRightRadius: Radius.xl,
+    boxShadow: Elevation.level2,
   },
   header: {
     gap: Spacing.one,
@@ -236,7 +237,7 @@ const styles = StyleSheet.create({
   item: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: Shape.full,
+    borderRadius: Radius.full,
     overflow: 'hidden',
   },
   divider: {

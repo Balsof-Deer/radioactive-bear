@@ -1,14 +1,15 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { PageScreen } from '@/components/page-screen';
 import { ThemedText } from '@/components/themed-text';
-import { Shape, Spacing, withAlpha } from '@/constants/theme';
+import { Radius, Spacing, withAlpha } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useSession } from '@/lib/auth-context';
-import { LOCATION_STATUS_COLOR, LOCATION_STATUS_LABEL } from '@/lib/location-status';
+import { LOCATION_STATUS_COLOR, LOCATION_STATUS_CONTAINER, LOCATION_STATUS_LABEL } from '@/lib/location-status';
 import { fetchMyLocations, type MyLocation } from '@/lib/locations';
+import { formatRating } from '@/lib/rating';
 
 export default function MyLocationsScreen() {
   const theme = useTheme();
@@ -44,42 +45,81 @@ export default function MyLocationsScreen() {
         </ThemedText>
       )}
 
-      {locations.map((location) => (
-        <Pressable
-          key={location.id}
-          accessibilityRole="button"
-          accessibilityHint="Opens this location"
-          onPress={() => router.push(`/location/${location.id}`)}
-          android_ripple={{ color: withAlpha(theme.onSurface, 0.1), foreground: true }}
-          style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
-          <ThemedText type="smallBold">{location.name}</ThemedText>
-          <ThemedText themeColor={LOCATION_STATUS_COLOR[location.status]} type="small">
-            {LOCATION_STATUS_LABEL[location.status]}
-          </ThemedText>
-          {location.address && (
-            <ThemedText themeColor="textSecondary" type="small">
-              {location.address}
-            </ThemedText>
-          )}
-          <ThemedText themeColor="textSecondary" type="small">
-            {location.review_count === 0
-              ? 'No reviews yet'
-              : `${Number(location.average_rating).toFixed(1)} from ${location.review_count} review${
-                  location.review_count === 1 ? '' : 's'
-                }`}
-            {' · '}Added {new Date(location.created_at).toLocaleDateString()}
-          </ThemedText>
-        </Pressable>
-      ))}
+      <View>
+        {locations.map((location, index) => {
+          const hasRating = location.review_count > 0 && location.average_rating !== null;
+          return (
+            <Pressable
+              key={location.id}
+              accessibilityRole="button"
+              accessibilityHint="Opens this location"
+              onPress={() => router.push(`/location/${location.id}`)}
+              android_ripple={{ color: withAlpha(theme.onSurface, 0.1) }}
+              style={[
+                styles.row,
+                index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderColor: theme.outlineVariant },
+              ]}>
+              <View style={styles.titleRow}>
+                <ThemedText type="heading" style={styles.name}>
+                  {location.name}
+                </ThemedText>
+                <ThemedText
+                  type="heading"
+                  themeColor={hasRating ? 'text' : 'textSecondary'}
+                  accessibilityLabel={
+                    hasRating
+                      ? `Rated ${formatRating(location.average_rating)} out of 5 from ${location.review_count} review${location.review_count === 1 ? '' : 's'}`
+                      : 'No reviews yet'
+                  }>
+                  {hasRating ? formatRating(location.average_rating) : 'New'}
+                </ThemedText>
+              </View>
+              {location.address && (
+                <ThemedText type="small" themeColor="textSecondary">
+                  {location.address}
+                </ThemedText>
+              )}
+              <View style={styles.metaRow}>
+                <View style={[styles.pill, { backgroundColor: theme[LOCATION_STATUS_CONTAINER[location.status]] }]}>
+                  <ThemedText type="label" themeColor={LOCATION_STATUS_COLOR[location.status]}>
+                    {LOCATION_STATUS_LABEL[location.status]}
+                  </ThemedText>
+                </View>
+                <ThemedText type="label" themeColor="textSecondary">
+                  Added {new Date(location.created_at).toLocaleDateString()}
+                </ThemedText>
+              </View>
+            </Pressable>
+          );
+        })}
+      </View>
     </PageScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
+  row: {
     gap: Spacing.one,
-    padding: Spacing.three,
-    borderRadius: Shape.extraLarge,
-    overflow: 'hidden',
+    paddingVertical: Spacing.three,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: Spacing.two,
+  },
+  name: {
+    flex: 1,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: Spacing.two,
+    marginTop: Spacing.half,
+  },
+  pill: {
+    borderRadius: Radius.sm,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.half,
   },
 });

@@ -1,13 +1,12 @@
 import { Host, type HostProps } from '@expo/ui/jetpack-compose';
 import { useColorScheme } from 'react-native';
 
-import { useThemePreference } from '@/lib/theme-preference';
+import { BRAND_SEED } from '@/constants/theme';
 
-// A Jetpack Compose Host themed with the same Material 3 scheme as the
-// rest of the app (the user's accent as seed, or their wallpaper).
+// A Jetpack Compose Host themed from the brand's forest green, so any
+// colours a native component doesn't take explicitly stay on-palette.
 export function ThemedHost(props: Omit<HostProps, 'seedColor' | 'colorScheme'>) {
-  const { seedColor } = useThemePreference();
   const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
 
-  return <Host seedColor={seedColor} colorScheme={scheme} {...props} />;
+  return <Host seedColor={BRAND_SEED} colorScheme={scheme} {...props} />;
 }

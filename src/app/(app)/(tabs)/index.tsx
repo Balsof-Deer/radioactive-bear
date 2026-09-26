@@ -1,99 +1,115 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Switch } from 'react-native';
+import { ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Loading } from '@/components/loading';
 import { LocationListItem } from '@/components/map/location-list-item';
-import { MenuButton } from '@/components/menu-button';
 import { RadiusSelector } from '@/components/map/radius-selector';
+import { MenuButton } from '@/components/menu-button';
+import { ThemedButton } from '@/components/themed-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { DEFAULT_RADIUS_KM } from '@/constants/map';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { BottomTabInset, Elevation, MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useNearbyLocations } from '@/hooks/use-nearby-locations';
 import { usePreferenceFilter } from '@/hooks/use-preference-filter';
 import { useTheme } from '@/hooks/use-theme';
 import { useSession } from '@/lib/auth-context';
+import { distanceInMetres } from '@/lib/geo';
+import { useErrorToast } from '@/lib/toast';
 
 export default function HomeScreen() {
   const theme = useTheme();
   const { profile } = useSession();
   const [radiusKm, setRadiusKm] = useState(DEFAULT_RADIUS_KM);
-  const { permission, locations, isLoading, error } = useNearbyLocations(radiusKm);
+  const { permission, userLocation, locations, isLoading, error } = useNearbyLocations(radiusKm);
+  useErrorToast(error);
   const locationIds = useMemo(() => locations.map((location) => location.id), [locations]);
   const { enabled: preferencesEnabled, setEnabled: setPreferencesEnabled, matches, hasPreferences } =
     usePreferenceFilter(locationIds);
+  const isMatching = preferencesEnabled && hasPreferences;
 
-  const sortedLocations =
-    preferencesEnabled && hasPreferences
-      ? [...locations].sort((a, b) => Number(matches(b.id)) - Number(matches(a.id)))
-      : locations;
+  const sortedLocations = isMatching
+    ? [...locations].sort((a, b) => Number(matches(b.id)) - Number(matches(a.id)))
+    : locations;
+
+  const isChecking = permission === 'checking' || (permission === 'granted' && isLoading);
 
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          <ThemedView style={styles.headerRow}>
+          <View style={styles.headerRow}>
             <MenuButton />
-            <ThemedView style={styles.greeting}>
-              <ThemedText type="title" style={styles.title}>
-                Welcome{profile?.display_name ? `, ${profile.display_name}` : ''}
-              </ThemedText>
-              <ThemedText themeColor="textSecondary">{profile?.email}</ThemedText>
-            </ThemedView>
-          </ThemedView>
+            <ThemedText type="title" style={styles.greeting}>
+              Welcome{profile?.display_name ? `, ${profile.display_name}` : ''}
+            </ThemedText>
+          </View>
 
-          <ThemedView style={styles.section}>
-            <ThemedView style={styles.sectionHeader}>
-              <ThemedText type="smallBold">Nearby locations</ThemedText>
-              <RadiusSelector value={radiusKm} onChange={setRadiusKm} />
-            </ThemedView>
+          <View style={styles.section}>
+            <ThemedText type="subtitle">Nearby</ThemedText>
 
-            <ThemedView type="backgroundElement" style={styles.preferenceToggleRow}>
-              <ThemedText type="small">Match my preferences</ThemedText>
-              <Switch
-                value={preferencesEnabled}
-                onValueChange={setPreferencesEnabled}
-                trackColor={{ true: theme.tint }}
-              />
-            </ThemedView>
+            {/* Controls and results grouped in one container. */}
+            <View style={[styles.group, { backgroundColor: theme.surfaceContainer }]}>
+              <View style={styles.controls}>
+                <RadiusSelector value={radiusKm} onChange={setRadiusKm} />
+                <View style={styles.switchRow}>
+                  <ThemedText type="small" style={styles.switchLabel}>
+                    Match my preferences
+                  </ThemedText>
+                  <Switch
+                    value={preferencesEnabled}
+                    onValueChange={setPreferencesEnabled}
+                    trackColor={{ true: theme.primary, false: theme.surfaceContainerHighest }}
+                    thumbColor={preferencesEnabled ? theme.onPrimary : theme.outline}
+                    accessibilityLabel="Match my preferences"
+                  />
+                </View>
+                {preferencesEnabled && !hasPreferences && (
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Choose your preferred amenities in Profile to use this.
+                  </ThemedText>
+                )}
+              </View>
 
-            {preferencesEnabled && !hasPreferences && (
-              <ThemedText themeColor="textSecondary" type="small">
-                Set your preferred amenities in Settings to use this.
-              </ThemedText>
-            )}
+              {isChecking && (
+                <View style={[styles.groupMessage, styles.divider, { borderColor: theme.outlineVariant }]}>
+                  <Loading style={styles.loading} />
+                </View>
+              )}
 
-            {permission === 'denied' && (
-              <ThemedText themeColor="textSecondary" type="small">
-                Enable location access on the Explore tab to see what&apos;s nearby.
-              </ThemedText>
-            )}
+              {permission === 'denied' && (
+                <View style={[styles.groupMessage, styles.divider, { borderColor: theme.outlineVariant }]}>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Turn on location access to see spots near you.
+                  </ThemedText>
+                  <ThemedButton label="Open Explore" variant="secondary" onPress={() => router.navigate('/explore')} />
+                </View>
+              )}
 
-            {(permission === 'checking' || (permission === 'granted' && isLoading)) && (
-              <ActivityIndicator style={styles.loading} />
-            )}
+              {permission === 'granted' && !isLoading && !error && locations.length === 0 && (
+                <View style={[styles.groupMessage, styles.divider, { borderColor: theme.outlineVariant }]}>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    No spots within {radiusKm} km yet. Try a wider radius, or add one from Explore.
+                  </ThemedText>
+                  <ThemedButton label="Open Explore" variant="secondary" onPress={() => router.navigate('/explore')} />
+                </View>
+              )}
 
-            {error && (
-              <ThemedText themeColor="danger" type="small">
-                {error}
-              </ThemedText>
-            )}
-
-            {permission === 'granted' && !isLoading && !error && locations.length === 0 && (
-              <ThemedText themeColor="textSecondary" type="small">
-                No locations within {radiusKm} km yet. Add one from the Explore tab.
-              </ThemedText>
-            )}
-
-            {sortedLocations.map((location) => (
-              <LocationListItem
-                key={location.id}
-                location={location}
-                onPress={(loc) => router.push(`/location/${loc.id}`)}
-              />
-            ))}
-          </ThemedView>
+              {!isChecking &&
+                sortedLocations.map((location) => (
+                  <LocationListItem
+                    key={location.id}
+                    location={location}
+                    showDivider
+                    distanceMetres={userLocation ? distanceInMetres(userLocation, location) : null}
+                    matchesPreferences={isMatching && matches(location.id)}
+                    onPress={(loc) => router.push(`/location/${loc.id}`)}
+                  />
+                ))}
+            </View>
+          </View>
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
@@ -108,48 +124,52 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.four,
+    width: '100%',
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.two,
     paddingBottom: BottomTabInset + Spacing.three,
-    alignItems: 'center',
     gap: Spacing.four,
   },
   headerRow: {
-    width: '100%',
-    maxWidth: MaxContentWidth,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
   },
   greeting: {
     flexShrink: 1,
-    gap: Spacing.half,
-  },
-  title: {
-    fontSize: 28,
-    lineHeight: 34,
   },
   section: {
-    width: '100%',
-    maxWidth: MaxContentWidth,
     gap: Spacing.two,
   },
-  sectionHeader: {
+  // Spec card surface: white, radius 16, soft shadow; rows divide inside.
+  group: {
+    borderRadius: Radius.lg,
+    boxShadow: Elevation.level1,
+    overflow: 'hidden',
+  },
+  controls: {
+    gap: Spacing.three,
+    padding: Spacing.three,
+  },
+  groupMessage: {
+    gap: Spacing.three,
+    alignItems: 'flex-start',
+    padding: Spacing.three,
+  },
+  divider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  switchRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
     alignItems: 'center',
     gap: Spacing.two,
   },
-  preferenceToggleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    borderRadius: Spacing.two,
+  switchLabel: {
+    flex: 1,
   },
   loading: {
-    alignSelf: 'flex-start',
+    alignSelf: 'center',
   },
 });

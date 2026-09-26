@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -11,18 +10,16 @@ import { MaxContentWidth, Spacing } from '@/constants/theme';
 // App-wide settings. Everything about the account itself (name, photo,
 // amenities, password, admin invite, deletion) lives on the Profile page.
 export default function SettingsScreen() {
-  const [isPickingColor, setIsPickingColor] = useState(false);
-
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ScrollView contentContainerStyle={styles.scrollContent} scrollEnabled={!isPickingColor}>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
           <ThemedView style={styles.headerRow}>
             <BackButton />
             <ThemedText type="subtitle">Settings</ThemedText>
           </ThemedView>
 
-          <AppearanceSettings onPickingChange={setIsPickingColor} />
+          <AppearanceSettings />
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
@@ -40,9 +37,9 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.four,
-    paddingBottom: Spacing.four,
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.two,
+    paddingBottom: Spacing.five,
     gap: Spacing.four,
   },
   headerRow: {

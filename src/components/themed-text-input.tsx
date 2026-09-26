@@ -1,25 +1,37 @@
 import { useState } from 'react';
-import { StyleSheet, TextInput, type TextInputProps } from 'react-native';
+import { StyleSheet, TextInput, useWindowDimensions, type TextInputProps } from 'react-native';
 
-import { Shape, Spacing, Typography } from '@/constants/theme';
+import { Radius, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-// Material 3 outlined text field: a 1px outline at rest that thickens to
-// 2px in the primary color while focused. Padding shrinks by the same 1px
-// so the text doesn't shift.
+// Spec input: cream container with a warm 1px border that becomes a 2px
+// forest-green outline while focused (the M3 focus behaviour). Padding
+// shrinks by the same 1px so the text doesn't shift. Padding is relative to
+// the text's line height x the phone's text size (48 tall at default).
 export function ThemedTextInput({ style, onFocus, onBlur, ...rest }: TextInputProps) {
   const theme = useTheme();
   const [isFocused, setIsFocused] = useState(false);
+  const { fontScale } = useWindowDimensions();
+  const lineHeight = Typography.bodyLarge.lineHeight * fontScale;
+  const borderWidth = isFocused ? 2 : 1;
 
   return (
     <TextInput
       style={[
         styles.input,
-        isFocused ? styles.focused : styles.resting,
-        { color: theme.onSurface, borderColor: isFocused ? theme.primary : theme.outline },
+        {
+          borderWidth,
+          paddingVertical: lineHeight * VERTICAL_PADDING_RATIO - borderWidth,
+          paddingHorizontal: lineHeight * HORIZONTAL_PADDING_RATIO - borderWidth,
+        },
+        {
+          color: theme.onSurface,
+          backgroundColor: theme.surfaceContainerLow,
+          borderColor: isFocused ? theme.primary : theme.outlineVariant,
+        },
         style,
       ]}
-      placeholderTextColor={theme.onSurfaceVariant}
+      placeholderTextColor={theme.textTertiary}
       cursorColor={theme.primary}
       selectionColor={theme.primary}
       autoCapitalize="none"
@@ -37,21 +49,12 @@ export function ThemedTextInput({ style, onFocus, onBlur, ...rest }: TextInputPr
   );
 }
 
+const VERTICAL_PADDING_RATIO = 0.6;
+const HORIZONTAL_PADDING_RATIO = 0.7;
+
 const styles = StyleSheet.create({
   input: {
     ...Typography.bodyLarge,
-    minHeight: 56,
-    borderRadius: Shape.extraSmall,
-    backgroundColor: 'transparent',
-  },
-  resting: {
-    borderWidth: 1,
-    paddingHorizontal: Spacing.three - 1,
-    paddingVertical: Spacing.two - 1,
-  },
-  focused: {
-    borderWidth: 2,
-    paddingHorizontal: Spacing.three - 2,
-    paddingVertical: Spacing.two - 2,
+    borderRadius: Radius.md,
   },
 });

@@ -1,21 +1,24 @@
-import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BackButton } from '@/components/back-button';
+import { Loading } from '@/components/loading';
+import { PhotoGallery } from '@/components/photo-gallery';
 import { ReviewForm } from '@/components/review-form';
-import { StarRating } from '@/components/star-rating';
+import { StudySpecs } from '@/components/study-specs';
 import { TagPicker } from '@/components/tag-picker';
 import { ThemedButton } from '@/components/themed-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedTextInput } from '@/components/themed-text-input';
 import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Shape, Spacing } from '@/constants/theme';
+import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
+import { formatRating } from '@/lib/rating';
 import { useSession } from '@/lib/auth-context';
-import { LOCATION_STATUS_COLOR, LOCATION_STATUS_LABEL } from '@/lib/location-status';
+import { LOCATION_STATUS_COLOR, LOCATION_STATUS_CONTAINER, LOCATION_STATUS_LABEL } from '@/lib/location-status';
 import {
   addLocationPhotoRecord,
   fetchLocationById,
@@ -36,11 +39,18 @@ import {
 import { deleteLocation } from '@/lib/admin';
 import { getLocationPhotoUrl, uploadLocationPhoto } from '@/lib/storage';
 import { fetchLocationTagIds, fetchTags, setLocationTags, type Tag } from '@/lib/tags';
+import { useErrorState } from '@/lib/toast';
+import { useConfirm } from '@/lib/confirm';
 
 const MAX_PHOTOS = 5;
 
 export default function LocationDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const confirm = useConfirm();
+  // review=1 (from the Explore spot sheet) opens straight into a new review.
+  const { id, review: startWithReview } = useLocalSearchParams<{ id: string; review?: string }>();
+  const scrollRef = useRef<ScrollView>(null);
+  const hasScrolledToForm = useRef(false);
+  const theme = useTheme();
   const { session, profile } = useSession();
 
   const [location, setLocation] = useState<NearbyLocation | null>(null);
@@ -51,22 +61,22 @@ export default function LocationDetailScreen() {
   const [locationTagIds, setLocationTagIds] = useState<string[]>([]);
   const [editTagIds, setEditTagIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useErrorState();
 
   const [editingReview, setEditingReview] = useState<ReviewWithRatings | null>(null);
-  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(startWithReview === '1');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
+  const [, setFormError] = useErrorState();
 
   const [isEditingLocation, setIsEditingLocation] = useState(false);
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editAddress, setEditAddress] = useState('');
   const [isSavingLocation, setIsSavingLocation] = useState(false);
-  const [locationEditError, setLocationEditError] = useState<string | null>(null);
+  const [, setLocationEditError] = useErrorState();
   const [isAddingPhotos, setIsAddingPhotos] = useState(false);
-  const [photoError, setPhotoError] = useState<string | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [, setPhotoError] = useErrorState();
+  const [, setDeleteError] = useErrorState();
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -92,7 +102,7 @@ export default function LocationDetailScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [id]);
+  }, [id, setLoadError]);
 
   useEffect(() => {
     // react-hooks/set-state-in-effect flags this as "setState in effect,"
@@ -211,50 +221,42 @@ export default function LocationDetailScreen() {
 
   function confirmDeleteLocation() {
     if (!location) return;
-    Alert.alert(
-      'Delete location?',
-      `"${location.name}" and all of its reviews and photos will be permanently removed.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            setDeleteError(null);
-            try {
-              await deleteLocation(id);
-              router.back();
-            } catch (err) {
-              setDeleteError(err instanceof Error ? err.message : 'Could not delete this location.');
-            }
-          },
-        },
-      ]
-    );
+    confirm({
+      title: 'Delete location?',
+      message: `"${location.name}" and all of its reviews and photos will be permanently removed.`,
+      confirmLabel: 'Delete',
+      onConfirm: async () => {
+        setDeleteError(null);
+        try {
+          await deleteLocation(id);
+          router.back();
+        } catch (err) {
+          setDeleteError(err instanceof Error ? err.message : 'Could not delete this location.');
+        }
+      },
+    });
   }
 
   function confirmDelete(review: ReviewWithRatings) {
-    Alert.alert('Delete review?', 'This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteReview(review.id);
-            await load();
-          } catch (err) {
-            setLoadError(err instanceof Error ? err.message : 'Could not delete this review.');
-          }
-        },
+    confirm({
+      title: 'Delete review?',
+      message: 'This cannot be undone.',
+      confirmLabel: 'Delete',
+      onConfirm: async () => {
+        try {
+          await deleteReview(review.id);
+          await load();
+        } catch (err) {
+          setLoadError(err instanceof Error ? err.message : 'Could not delete this review.');
+        }
       },
-    ]);
+    });
   }
 
   if (isLoading) {
     return (
       <ThemedView style={styles.centered}>
-        <ActivityIndicator />
+        <Loading />
       </ThemedView>
     );
   }
@@ -267,8 +269,8 @@ export default function LocationDetailScreen() {
             <BackButton />
           </View>
           <ThemedView style={styles.centered}>
-            <ThemedText themeColor="danger" style={styles.centerText}>
-              {loadError ?? 'Location not found.'}
+            <ThemedText themeColor="textSecondary" style={styles.centerText}>
+              {loadError ? "Couldn't load this location." : 'This location could not be found.'}
             </ThemedText>
           </ThemedView>
         </SafeAreaView>
@@ -276,205 +278,225 @@ export default function LocationDetailScreen() {
     );
   }
 
+  const tags = allTags.filter((tag) => locationTagIds.includes(tag.id));
+  const hasRating = location.review_count > 0 && location.average_rating !== null;
+  const canManage = canEditLocation || canAddPhotos || isAdmin;
+
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <ScrollView
+          ref={scrollRef}
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag">
-          <View style={styles.content}>
-          <ThemedView style={styles.backButtonWrapper}>
+          <View style={styles.header}>
             <BackButton />
-          </ThemedView>
+          </View>
+
+          <PhotoGallery urls={photoUrls} placeName={location.name} />
 
           {!isEditingLocation && (
-            <>
-              <ThemedText type="title" style={styles.name}>
-                {location.name}
-              </ThemedText>
-              <ThemedText themeColor={LOCATION_STATUS_COLOR[location.status]} type="small">
-                {LOCATION_STATUS_LABEL[location.status]}
-              </ThemedText>
+            <View style={styles.intro}>
+              <View style={styles.titleRow}>
+                <View style={styles.titleGroup}>
+                  <ThemedText type="title">{location.name}</ThemedText>
+                  <View style={[styles.statusPill, { backgroundColor: theme[LOCATION_STATUS_CONTAINER[location.status]] }]}>
+                    <ThemedText type="label" themeColor={LOCATION_STATUS_COLOR[location.status]}>
+                      {LOCATION_STATUS_LABEL[location.status]}
+                    </ThemedText>
+                  </View>
+                </View>
+                <View
+                  accessible
+                  accessibilityLabel={
+                    hasRating
+                      ? `Average rating ${formatRating(location.average_rating)} out of 5 from ${location.review_count} review${location.review_count === 1 ? '' : 's'}`
+                      : 'No reviews yet'
+                  }
+                  style={styles.ratingSummary}>
+                  <ThemedText type="title">{hasRating ? formatRating(location.average_rating) : 'New'}</ThemedText>
+                  <ThemedText type="label" themeColor="textSecondary">
+                    {hasRating
+                      ? `${location.review_count} review${location.review_count === 1 ? '' : 's'}`
+                      : 'No reviews yet'}
+                  </ThemedText>
+                </View>
+              </View>
+
               {location.status === 'rejected' && location.admin_rejection_reason && (
-                <ThemedText themeColor="danger" type="small">
-                  Reason: {location.admin_rejection_reason}
+                <View style={[styles.callout, { backgroundColor: theme.statusBusyContainer }]}>
+                  <ThemedText type="smallBold" themeColor="statusBusy">
+                    Not approved
+                  </ThemedText>
+                  <ThemedText type="small" themeColor="statusBusy">
+                    {location.admin_rejection_reason}
+                  </ThemedText>
+                </View>
+              )}
+
+              {location.address && (
+                <ThemedText type="small" themeColor="textSecondary">
+                  {location.address}
                 </ThemedText>
               )}
-              {location.address && <ThemedText themeColor="textSecondary">{location.address}</ThemedText>}
               {location.description && <ThemedText>{location.description}</ThemedText>}
-              {locationTagIds.length > 0 && (
-                <ThemedView style={styles.tagBadgeRow}>
-                  {allTags
-                    .filter((tag) => locationTagIds.includes(tag.id))
-                    .map((tag) => (
-                      <ThemedView key={tag.id} type="backgroundElement" style={styles.tagBadge}>
-                        <ThemedText type="small">{tag.label}</ThemedText>
-                      </ThemedView>
-                    ))}
-                </ThemedView>
+
+              {tags.length > 0 && (
+                <View style={styles.tagRow}>
+                  {tags.map((tag) => (
+                    <View key={tag.id} style={[styles.tag, { backgroundColor: theme.primaryContainer }]}>
+                      <ThemedText type="label" style={{ color: theme.onPrimaryContainer }}>
+                        {tag.label}
+                      </ThemedText>
+                    </View>
+                  ))}
+                </View>
               )}
-              {canEditLocation && (
-                <ThemedButton
-                  label="Edit location"
-                  variant="secondary"
-                  onPress={openEditLocation}
-                  style={styles.editLocationButton}
-                />
-              )}
-              {isAdmin && (
-                <ThemedButton
-                  label="Delete location"
-                  variant="secondary"
-                  onPress={confirmDeleteLocation}
-                  style={styles.editLocationButton}
-                />
-              )}
-              {deleteError && (
-                <ThemedText themeColor="danger" type="small">
-                  {deleteError}
-                </ThemedText>
-              )}
-            </>
+            </View>
           )}
 
           {isEditingLocation && (
-            <ThemedView type="backgroundElement" style={styles.editLocationForm}>
-              <ThemedText type="smallBold">Name</ThemedText>
+            <View style={styles.section}>
+              <ThemedText type="subtitle">Edit location</ThemedText>
+              <ThemedText type="heading">Name</ThemedText>
               <ThemedTextInput value={editName} onChangeText={setEditName} placeholder="Name" />
-              <ThemedText type="smallBold">Description</ThemedText>
+              <ThemedText type="heading">Description</ThemedText>
               <ThemedTextInput
                 value={editDescription}
                 onChangeText={setEditDescription}
                 placeholder="Description (optional)"
                 multiline
-                style={styles.editLocationMultiline}
+                style={styles.multiline}
               />
-              <ThemedText type="smallBold">Address</ThemedText>
-              <ThemedTextInput
-                value={editAddress}
-                onChangeText={setEditAddress}
-                placeholder="Address (optional)"
-              />
-              <ThemedText type="smallBold">Amenities</ThemedText>
+              <ThemedText type="heading">Address</ThemedText>
+              <ThemedTextInput value={editAddress} onChangeText={setEditAddress} placeholder="Address (optional)" />
+              <ThemedText type="heading">Amenities</ThemedText>
               <TagPicker tags={allTags} selectedTagIds={editTagIds} onToggle={toggleEditTag} />
-              {locationEditError && (
-                <ThemedText themeColor="danger" type="small">
-                  {locationEditError}
-                </ThemedText>
-              )}
-              <ThemedButton
-                label="Save changes"
-                onPress={handleSaveLocation}
-                loading={isSavingLocation}
-                disabled={isSavingLocation}
-              />
-              <ThemedButton
-                label="Cancel"
-                variant="secondary"
-                onPress={() => setIsEditingLocation(false)}
-                disabled={isSavingLocation}
-              />
-            </ThemedView>
+              <View style={styles.buttonRow}>
+                <ThemedButton
+                  label="Cancel"
+                  variant="secondary"
+                  onPress={() => setIsEditingLocation(false)}
+                  disabled={isSavingLocation}
+                  style={styles.flexButton}
+                />
+                <ThemedButton
+                  label="Save changes"
+                  onPress={handleSaveLocation}
+                  loading={isSavingLocation}
+                  disabled={isSavingLocation}
+                  style={styles.flexButton}
+                />
+              </View>
+            </View>
           )}
 
-          <ThemedView style={styles.ratingRow}>
-            <StarRating value={location.average_rating ?? 0} />
-            <ThemedText themeColor="textSecondary" type="small">
-              {location.review_count > 0
-                ? `${location.average_rating?.toFixed(1)} · ${location.review_count} review${location.review_count === 1 ? '' : 's'}`
-                : 'No reviews yet'}
-            </ThemedText>
-          </ThemedView>
-
-          {photoUrls.length > 0 && (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.photoRow}>
-              {photoUrls.map((url) => (
-                <Image key={url} source={{ uri: url }} style={styles.photo} />
-              ))}
-            </ScrollView>
+          {categories.length > 0 && (
+            <View style={styles.section}>
+              <ThemedText type="subtitle">Study specs</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                Average scores from this spot&apos;s reviews.
+              </ThemedText>
+              <StudySpecs categories={categories} reviews={reviews} />
+            </View>
           )}
 
-          {canAddPhotos && photoUrls.length < MAX_PHOTOS && (
-            <ThemedButton
-              label={isAddingPhotos ? 'Adding photos...' : `Add photos (${photoUrls.length}/${MAX_PHOTOS})`}
-              variant="secondary"
-              onPress={handleAddPhotos}
-              loading={isAddingPhotos}
-              disabled={isAddingPhotos}
-            />
-          )}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <ThemedText type="subtitle">Reviews</ThemedText>
+              {!isFormOpen && <ThemedButton label="Write a review" onPress={openNewReviewForm} />}
+            </View>
 
-          {photoError && (
-            <ThemedText themeColor="danger" type="small">
-              {photoError}
-            </ThemedText>
-          )}
+            {isFormOpen && (
+              <View
+                onLayout={(event) => {
+                  // Arriving via the review shortcut: bring the form into view once.
+                  if (startWithReview === '1' && !hasScrolledToForm.current) {
+                    hasScrolledToForm.current = true;
+                    scrollRef.current?.scrollTo({ y: event.nativeEvent.layout.y, animated: true });
+                  }
+                }}>
+                <ReviewForm
+                  categories={categories}
+                  initialValues={
+                    editingReview
+                      ? {
+                          overallRating: editingReview.overall_rating,
+                          body: editingReview.body ?? '',
+                          categoryScores: Object.fromEntries(
+                            editingReview.category_scores.map((score) => [score.category_id, score.score])
+                          ),
+                        }
+                      : undefined
+                  }
+                  isSubmitting={isSubmitting}
+                  onSubmit={handleSubmitReview}
+                  onCancel={() => {
+                    setIsFormOpen(false);
+                    setEditingReview(null);
+                  }}
+                />
+              </View>
+            )}
 
-          {!isFormOpen && <ThemedButton label="Write a review" onPress={openNewReviewForm} />}
-
-          {isFormOpen && (
-            <ReviewForm
-              categories={categories}
-              initialValues={
-                editingReview
-                  ? {
-                      overallRating: editingReview.overall_rating,
-                      body: editingReview.body ?? '',
-                      categoryScores: Object.fromEntries(
-                        editingReview.category_scores.map((score) => [score.category_id, score.score])
-                      ),
-                    }
-                  : undefined
-              }
-              isSubmitting={isSubmitting}
-              error={formError}
-              onSubmit={handleSubmitReview}
-              onCancel={() => {
-                setIsFormOpen(false);
-                setEditingReview(null);
-              }}
-            />
-          )}
-
-          <ThemedView style={styles.reviewsSection}>
-            <ThemedText type="smallBold">Reviews</ThemedText>
-            {reviews.length === 0 && (
-              <ThemedText themeColor="textSecondary" type="small">
-                Be the first to review this place.
+            {reviews.length === 0 && !isFormOpen && (
+              <ThemedText type="small" themeColor="textSecondary">
+                No reviews yet. Be the first to share what it&apos;s like to study here.
               </ThemedText>
             )}
-            {reviews.map((review) => {
+
+            {reviews.map((review, index) => {
               // Only the author may edit; admins may also delete (enforced by RLS).
               const isMine = !!myUserId && review.user_id === myUserId;
               const canDelete = isMine || isAdmin;
+              const author = review.user_id === null ? 'Deleted user' : (review.reviewer_display_name ?? 'A student');
               return (
-                <ThemedView key={review.id} type="backgroundElement" style={styles.reviewCard}>
-                  <ThemedView type="backgroundElement" style={styles.reviewHeader}>
-                    <ThemedText type="smallBold">{review.user_id === null ? 'Deleted user' : (review.reviewer_display_name ?? 'Student')}</ThemedText>
-                    <StarRating value={review.overall_rating} />
-                  </ThemedView>
-                  {review.body && <ThemedText type="small">{review.body}</ThemedText>}
-                  <ThemedText themeColor="textSecondary" type="small">
-                    {new Date(review.created_at).toLocaleDateString()}
-                  </ThemedText>
+                <View
+                  key={review.id}
+                  style={[styles.review, index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderColor: theme.outlineVariant }]}>
+                  <View style={styles.reviewHeader}>
+                    <View style={styles.reviewAuthor}>
+                      <ThemedText type="heading">{isMine ? 'You' : author}</ThemedText>
+                      <ThemedText type="label" themeColor="textSecondary">
+                        {new Date(review.created_at).toLocaleDateString()}
+                      </ThemedText>
+                    </View>
+                    <ThemedText type="heading" accessibilityLabel={`Rated ${formatRating(review.overall_rating)} out of 5`}>
+                      {formatRating(review.overall_rating)}
+                    </ThemedText>
+                  </View>
+                  {review.body && <ThemedText>{review.body}</ThemedText>}
                   {canDelete && (
-                    <ThemedView type="backgroundElement" style={styles.reviewActions}>
-                      {isMine && (
-                        <ThemedButton label="Edit" variant="secondary" onPress={() => openEditReviewForm(review)} />
-                      )}
-                      <ThemedButton label="Delete" variant="secondary" onPress={() => confirmDelete(review)} />
-                    </ThemedView>
+                    <View style={styles.textButtonRow}>
+                      {isMine && <ThemedButton label="Edit" variant="text" onPress={() => openEditReviewForm(review)} />}
+                      <ThemedButton label="Delete" variant="textDanger" onPress={() => confirmDelete(review)} />
+                    </View>
                   )}
-                </ThemedView>
+                </View>
               );
             })}
-          </ThemedView>
           </View>
+
+          {canManage && !isEditingLocation && (
+            <View style={styles.section}>
+              <ThemedText type="subtitle">Manage this location</ThemedText>
+              <View style={styles.manageRow}>
+                {canEditLocation && <ThemedButton label="Edit location" variant="text" onPress={openEditLocation} />}
+                {canAddPhotos && photoUrls.length < MAX_PHOTOS && (
+                  <ThemedButton
+                    label={isAddingPhotos ? 'Adding photos' : `Add photos (${photoUrls.length} of ${MAX_PHOTOS})`}
+                    variant="text"
+                    onPress={handleAddPhotos}
+                    loading={isAddingPhotos}
+                    disabled={isAddingPhotos}
+                  />
+                )}
+                {isAdmin && <ThemedButton label="Delete location" variant="textDanger" onPress={confirmDeleteLocation} />}
+              </View>
+            </View>
+          )}
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
@@ -482,9 +504,6 @@ export default function LocationDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: {
-    width: '100%',
-  },
   container: {
     flex: 1,
   },
@@ -499,8 +518,9 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
-    padding: Spacing.four,
-    gap: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    paddingBottom: Spacing.five,
+    gap: Spacing.four,
   },
   centered: {
     flex: 1,
@@ -516,70 +536,87 @@ const styles = StyleSheet.create({
   centerText: {
     textAlign: 'center',
   },
-  backButtonWrapper: {
-    alignItems: 'flex-start',
-    marginBottom: Spacing.two,
-  },
-  name: {
-    fontSize: 28,
-    lineHeight: 34,
-  },
-  tagBadgeRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.two,
-    marginTop: Spacing.two,
-  },
-  tagBadge: {
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.one,
-    borderRadius: Spacing.five,
-  },
-  editLocationButton: {
-    alignSelf: 'flex-start',
-    marginTop: Spacing.two,
-  },
-  editLocationForm: {
-    gap: Spacing.two,
-    padding: Spacing.three,
-    borderRadius: Shape.extraLarge,
-  },
-  editLocationMultiline: {
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  ratingRow: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingTop: Spacing.two,
+  },
+  intro: {
     gap: Spacing.two,
-    marginVertical: Spacing.two,
   },
-  photoRow: {
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.three,
+  },
+  titleGroup: {
+    flex: 1,
+    alignItems: 'flex-start',
     gap: Spacing.two,
-    marginBottom: Spacing.two,
   },
-  photo: {
-    width: 140,
-    height: 140,
-    borderRadius: Spacing.two,
+  statusPill: {
+    borderRadius: Radius.sm,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.half,
   },
-  reviewsSection: {
-    gap: Spacing.two,
-    marginTop: Spacing.four,
+  ratingSummary: {
+    alignItems: 'flex-end',
   },
-  reviewCard: {
-    gap: Spacing.half,
+  callout: {
+    borderRadius: Radius.md,
     padding: Spacing.three,
-    borderRadius: Shape.extraLarge,
+    gap: Spacing.one,
+  },
+  tagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.one,
+  },
+  tag: {
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.two + Spacing.one,
+    paddingVertical: Spacing.one,
+  },
+  section: {
+    gap: Spacing.two,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  review: {
+    gap: Spacing.two,
+    paddingVertical: Spacing.three,
+  },
+  textButtonRow: {
+    flexDirection: 'row',
+  },
+  multiline: {
+    minHeight: 96,
+    textAlignVertical: 'top',
   },
   reviewHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    gap: Spacing.two,
   },
-  reviewActions: {
+  reviewAuthor: {
+    flex: 1,
+    gap: Spacing.half,
+  },
+  buttonRow: {
     flexDirection: 'row',
     gap: Spacing.two,
-    marginTop: Spacing.two,
+  },
+  flexButton: {
+    flex: 1,
+  },
+  manageRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
   },
 });

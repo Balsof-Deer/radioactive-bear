@@ -1,52 +1,59 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BackButton } from '@/components/back-button';
+import { Loading } from '@/components/loading';
+import { PasswordChecklist } from '@/components/password-checklist';
 import { ProfileAvatar } from '@/components/profile-avatar';
 import { TagPicker } from '@/components/tag-picker';
 import { ThemedButton } from '@/components/themed-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedTextInput } from '@/components/themed-text-input';
 import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Shape, Spacing } from '@/constants/theme';
+import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { redeemAdminInvite } from '@/lib/admin';
 import { useSession } from '@/lib/auth-context';
+import { isStrongPassword } from '@/lib/password-rules';
 import { changePassword, deleteMyAccount, removeAvatar, updateDisplayName, uploadAvatar } from '@/lib/profile';
 import { fetchMyPreferredTagIds, fetchTags, setMyPreferredTagIds, type Tag } from '@/lib/tags';
+import { useErrorState, useToast } from '@/lib/toast';
+import { useConfirm } from '@/lib/confirm';
 
 export default function ProfileScreen() {
+  const confirm = useConfirm();
+  const theme = useTheme();
   const { session, profile, refreshProfile } = useSession();
+  const { showSuccess } = useToast();
 
   const [isChangingPhoto, setIsChangingPhoto] = useState(false);
-  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [, setPhotoError] = useErrorState();
 
   const [displayName, setDisplayName] = useState(profile?.display_name ?? '');
   const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
+  const [, setError] = useErrorState();
 
   const [tags, setTags] = useState<Tag[]>([]);
   const [preferredTagIds, setPreferredTagIds] = useState<string[]>([]);
   const [isLoadingTags, setIsLoadingTags] = useState(true);
   const [isSavingPreferences, setIsSavingPreferences] = useState(false);
-  const [preferencesSaved, setPreferencesSaved] = useState(false);
-  const [preferencesError, setPreferencesError] = useState<string | null>(null);
+  const [, setPreferencesError] = useErrorState();
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [passwordChanged, setPasswordChanged] = useState(false);
+  const [, setPasswordError] = useErrorState();
 
   const [inviteCode, setInviteCode] = useState('');
   const [isRedeeming, setIsRedeeming] = useState(false);
-  const [redeemError, setRedeemError] = useState<string | null>(null);
+  const [, setRedeemError] = useErrorState();
 
   const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [, setDeleteError] = useErrorState();
+
 
   async function handlePickPhoto() {
     if (!session) return;
@@ -90,12 +97,11 @@ export default function ProfileScreen() {
   async function handleSaveName() {
     if (!session) return;
     setError(null);
-    setSaved(false);
     setIsSaving(true);
     try {
       await updateDisplayName(session.user.id, displayName.trim());
       await refreshProfile();
-      setSaved(true);
+      showSuccess('Display name saved.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save your display name.');
     } finally {
@@ -115,7 +121,7 @@ export default function ProfileScreen() {
     } finally {
       setIsLoadingTags(false);
     }
-  }, [session]);
+  }, [session, setPreferencesError]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -123,7 +129,6 @@ export default function ProfileScreen() {
   }, [loadPreferences]);
 
   function togglePreferredTag(tagId: string) {
-    setPreferencesSaved(false);
     setPreferredTagIds((prev) => (prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]));
   }
 
@@ -133,7 +138,7 @@ export default function ProfileScreen() {
     setIsSavingPreferences(true);
     try {
       await setMyPreferredTagIds(session.user.id, preferredTagIds);
-      setPreferencesSaved(true);
+      showSuccess('Preferred amenities saved.');
     } catch (err) {
       setPreferencesError(err instanceof Error ? err.message : 'Could not save preferences.');
     } finally {
@@ -143,9 +148,12 @@ export default function ProfileScreen() {
 
   async function handleChangePassword() {
     if (!profile) return;
-    setPasswordChanged(false);
     if (!currentPassword || !newPassword) {
       setPasswordError('Enter your current password and a new one.');
+      return;
+    }
+    if (!isStrongPassword(newPassword)) {
+      setPasswordError('Choose a stronger new password: it needs everything in the list under it.');
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -159,7 +167,7 @@ export default function ProfileScreen() {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-      setPasswordChanged(true);
+      showSuccess('Password changed.');
     } catch (err) {
       setPasswordError(err instanceof Error ? err.message : 'Could not change your password.');
     } finally {
@@ -186,14 +194,13 @@ export default function ProfileScreen() {
   }
 
   function confirmDeleteAccount() {
-    Alert.alert(
-      'Delete your account?',
-      'Your account and profile photo will be permanently deleted. Reviews and locations you added stay in the app, shown as from a deleted user. This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete account', style: 'destructive', onPress: handleDeleteAccount },
-      ]
-    );
+    confirm({
+      title: 'Delete your account?',
+      message:
+        'Your account and profile photo will be permanently deleted. Reviews and locations you added stay in the app, shown as from a deleted user. This cannot be undone.',
+      confirmLabel: 'Delete account',
+      onConfirm: handleDeleteAccount,
+    });
   }
 
   async function handleDeleteAccount() {
@@ -216,99 +223,81 @@ export default function ProfileScreen() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag">
-          <ThemedView style={styles.headerRow}>
+          <View style={styles.headerRow}>
             <BackButton />
             <ThemedText type="subtitle">Profile</ThemedText>
-          </ThemedView>
+          </View>
 
-          <ThemedView type="backgroundElement" style={styles.card}>
-            <ThemedView type="backgroundElement" style={styles.photoRow}>
-              <ProfileAvatar profile={profile} scale={3.5} />
-              <ThemedView type="backgroundElement" style={styles.photoActions}>
-                <ThemedButton
-                  label={profile?.avatar_path ? 'Change photo' : 'Add photo'}
-                  onPress={handlePickPhoto}
-                  loading={isChangingPhoto}
-                  disabled={isChangingPhoto}
-                />
-                {profile?.avatar_path && (
-                  <ThemedButton
-                    label="Remove photo"
-                    variant="secondary"
-                    onPress={handleRemovePhoto}
-                    disabled={isChangingPhoto}
-                  />
-                )}
-              </ThemedView>
-            </ThemedView>
-            {photoError && (
-              <ThemedText themeColor="danger" type="small">
-                {photoError}
+          <View style={styles.identity}>
+            <ProfileAvatar profile={profile} scale={4} />
+            <View style={styles.identityText}>
+              <ThemedText type="title" style={styles.centerText}>
+                {profile?.display_name || 'No display name yet'}
               </ThemedText>
-            )}
-            <ThemedText themeColor="textSecondary" type="small">
+              <ThemedText type="small" themeColor="textSecondary" style={styles.centerText}>
+                {profile?.email}
+              </ThemedText>
+            </View>
+            <View style={styles.photoActions}>
+              <ThemedButton
+                label={profile?.avatar_path ? 'Change photo' : 'Add photo'}
+                variant="text"
+                onPress={handlePickPhoto}
+                loading={isChangingPhoto}
+                disabled={isChangingPhoto}
+              />
+              {profile?.avatar_path && (
+                <ThemedButton label="Remove photo" variant="text" onPress={handleRemovePhoto} disabled={isChangingPhoto} />
+              )}
+            </View>
+            <ThemedText type="label" themeColor="textSecondary">
               Only you and admins can see your photo.
             </ThemedText>
-          </ThemedView>
+          </View>
 
-          <ThemedView type="backgroundElement" style={styles.card}>
-            <ThemedText type="smallBold">Display name</ThemedText>
-            <ThemedText themeColor="textSecondary" type="small">
-              {profile?.email}
-            </ThemedText>
+          <View style={[styles.section, styles.divided, { borderColor: theme.outlineVariant }]}>
+            <ThemedText type="heading">Display name</ThemedText>
             <ThemedTextInput
               placeholder="Display name"
               value={displayName}
               onChangeText={setDisplayName}
               autoCapitalize="words"
+              accessibilityLabel="Display name"
             />
-            {error && (
-              <ThemedText themeColor="danger" type="small">
-                {error}
-              </ThemedText>
-            )}
-            {saved && !error && (
-              <ThemedText themeColor="tint" type="small">
-                Saved.
-              </ThemedText>
-            )}
-            <ThemedButton label="Save" onPress={handleSaveName} loading={isSaving} disabled={isSaving} />
-          </ThemedView>
+            <View style={styles.actionRow}>
+              <ThemedButton label="Save" onPress={handleSaveName} loading={isSaving} disabled={isSaving} />
+            </View>
+          </View>
 
-          <ThemedView type="backgroundElement" style={styles.card}>
-            <ThemedText type="smallBold">Preferred amenities</ThemedText>
-            <ThemedText themeColor="textSecondary" type="small">
-              Used by the preference filter on the Home tab to surface locations that match what
-              you&apos;re looking for.
+          <View style={[styles.section, styles.divided, { borderColor: theme.outlineVariant }]}>
+            <ThemedText type="heading">Preferred amenities</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              Spots with these are sorted first on Home when &quot;Match my preferences&quot; is on.
             </ThemedText>
-            {isLoadingTags && <ActivityIndicator style={styles.loading} />}
-            {!isLoadingTags && <TagPicker tags={tags} selectedTagIds={preferredTagIds} onToggle={togglePreferredTag} />}
-            {preferencesError && (
-              <ThemedText themeColor="danger" type="small">
-                {preferencesError}
-              </ThemedText>
+            {isLoadingTags ? (
+              <Loading scale={1.4} style={styles.loading} />
+            ) : (
+              <TagPicker tags={tags} selectedTagIds={preferredTagIds} onToggle={togglePreferredTag} />
             )}
-            {preferencesSaved && !preferencesError && (
-              <ThemedText themeColor="tint" type="small">
-                Saved.
-              </ThemedText>
-            )}
-            <ThemedButton
-              label="Save preferences"
-              onPress={handleSavePreferences}
-              loading={isSavingPreferences}
-              disabled={isSavingPreferences || isLoadingTags}
-            />
-          </ThemedView>
+            <View style={styles.actionRow}>
+              <ThemedButton
+                label="Save"
+                onPress={handleSavePreferences}
+                loading={isSavingPreferences}
+                disabled={isSavingPreferences || isLoadingTags}
+              />
+            </View>
+          </View>
 
-          <ThemedView type="backgroundElement" style={styles.card}>
-            <ThemedText type="smallBold">Change password</ThemedText>
+          <View style={[styles.section, styles.divided, { borderColor: theme.outlineVariant }]}>
+            <ThemedText type="heading">Change password</ThemedText>
             <ThemedTextInput
               placeholder="Current password"
               value={currentPassword}
               onChangeText={setCurrentPassword}
               secureTextEntry
               textContentType="password"
+              accessibilityLabel="Current password"
             />
             <ThemedTextInput
               placeholder="New password"
@@ -316,73 +305,67 @@ export default function ProfileScreen() {
               onChangeText={setNewPassword}
               secureTextEntry
               textContentType="newPassword"
+              accessibilityLabel="New password"
             />
+            <PasswordChecklist password={newPassword} />
             <ThemedTextInput
               placeholder="Confirm new password"
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               secureTextEntry
               textContentType="newPassword"
+              accessibilityLabel="Confirm new password"
             />
-            {passwordError && (
-              <ThemedText themeColor="danger" type="small">
-                {passwordError}
-              </ThemedText>
-            )}
-            {passwordChanged && !passwordError && (
-              <ThemedText themeColor="tint" type="small">
-                Password changed.
-              </ThemedText>
-            )}
-            <ThemedButton
-              label="Change password"
-              onPress={handleChangePassword}
-              loading={isChangingPassword}
-              disabled={isChangingPassword}
-            />
-          </ThemedView>
+            <View style={styles.actionRow}>
+              <ThemedButton
+                label="Change password"
+                onPress={handleChangePassword}
+                loading={isChangingPassword}
+                disabled={isChangingPassword || !isStrongPassword(newPassword)}
+              />
+            </View>
+          </View>
 
           {profile?.role !== 'admin' && (
-            <ThemedView type="backgroundElement" style={styles.card}>
-              <ThemedText type="smallBold">Admin invite</ThemedText>
-              <ThemedText themeColor="textSecondary" type="small">
+            <View style={[styles.section, styles.divided, { borderColor: theme.outlineVariant }]}>
+              <ThemedText type="heading">Admin invite</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
                 If an admin gave you an invite code, enter it here to get admin access.
               </ThemedText>
-              <ThemedTextInput placeholder="Invite code" value={inviteCode} onChangeText={setInviteCode} />
-              {redeemError && (
-                <ThemedText themeColor="danger" type="small">
-                  {redeemError}
-                </ThemedText>
-              )}
-              <ThemedButton
-                label="Redeem"
-                variant="secondary"
-                onPress={handleRedeem}
-                loading={isRedeeming}
-                disabled={isRedeeming}
+              <ThemedTextInput
+                placeholder="Invite code"
+                value={inviteCode}
+                onChangeText={setInviteCode}
+                accessibilityLabel="Invite code"
               />
-            </ThemedView>
+              <View style={styles.actionRow}>
+                <ThemedButton
+                  label="Redeem"
+                  variant="secondary"
+                  onPress={handleRedeem}
+                  loading={isRedeeming}
+                  disabled={isRedeeming}
+                />
+              </View>
+            </View>
           )}
 
-          <ThemedView type="backgroundElement" style={styles.card}>
-            <ThemedText type="smallBold">Delete account</ThemedText>
-            <ThemedText themeColor="textSecondary" type="small">
+          <View style={[styles.section, styles.divided, { borderColor: theme.outlineVariant }]}>
+            <ThemedText type="heading">Delete account</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
               Permanently deletes your account and profile photo. Reviews and locations you added stay,
               shown as from a deleted user.
             </ThemedText>
-            {deleteError && (
-              <ThemedText themeColor="danger" type="small">
-                {deleteError}
-              </ThemedText>
-            )}
-            <ThemedButton
-              label="Delete account"
-              variant="secondary"
-              onPress={confirmDeleteAccount}
-              loading={isDeleting}
-              disabled={isDeleting}
-            />
-          </ThemedView>
+            <View style={styles.startRow}>
+              <ThemedButton
+                label="Delete account"
+                variant="textDanger"
+                onPress={confirmDeleteAccount}
+                loading={isDeleting}
+                disabled={isDeleting}
+              />
+            </View>
+          </View>
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
@@ -400,29 +383,46 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.four,
-    paddingBottom: Spacing.four,
-    gap: Spacing.three,
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.two,
+    paddingBottom: Spacing.five,
+    gap: Spacing.four,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
   },
-  card: {
-    gap: Spacing.two,
-    padding: Spacing.three,
-    borderRadius: Shape.extraLarge,
-  },
-  photoRow: {
-    flexDirection: 'row',
+  identity: {
     alignItems: 'center',
-    gap: Spacing.three,
+    gap: Spacing.two,
+  },
+  identityText: {
+    alignItems: 'center',
+    gap: Spacing.half,
+  },
+  centerText: {
+    textAlign: 'center',
   },
   photoActions: {
-    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
+  section: {
     gap: Spacing.two,
+  },
+  // Hairline between sections, with room above the next heading.
+  divided: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: Spacing.four,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  startRow: {
+    flexDirection: 'row',
   },
   loading: {
     alignSelf: 'flex-start',

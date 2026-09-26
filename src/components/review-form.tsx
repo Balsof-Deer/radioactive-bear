@@ -1,95 +1,167 @@
 import { useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 
-import { StarRating } from '@/components/star-rating';
+import { IconButton } from '@/components/icon-button';
+import { RatingSlider } from '@/components/rating-slider';
 import { ThemedButton } from '@/components/themed-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedTextInput } from '@/components/themed-text-input';
-import { ThemedView } from '@/components/themed-view';
-import { Shape, Spacing } from '@/constants/theme';
+import { Spacing, Typography } from '@/constants/theme';
+import { formatRating } from '@/lib/rating';
 import type { RatingCategory, ReviewFormValues } from '@/lib/reviews';
 
 type ReviewFormProps = {
   categories: RatingCategory[];
   initialValues?: ReviewFormValues;
   isSubmitting: boolean;
-  error: string | null;
   onSubmit: (values: ReviewFormValues) => void;
   onCancel: () => void;
 };
 
+// Minimal review form: slider ratings from 0 to 5 in half steps. The
+// overall rating is required (0 is a valid rating, so "not rated yet" is
+// tracked separately); category ratings are optional and can be cleared.
 export function ReviewForm({
   categories,
   initialValues,
   isSubmitting,
-  error,
   onSubmit,
   onCancel,
 }: ReviewFormProps) {
-  const [overallRating, setOverallRating] = useState(initialValues?.overallRating ?? 0);
+  const { fontScale } = useWindowDimensions();
+  const isEditing = !!initialValues;
+  const [overallRating, setOverallRating] = useState<number | null>(initialValues?.overallRating ?? null);
   const [body, setBody] = useState(initialValues?.body ?? '');
   const [categoryScores, setCategoryScores] = useState<Record<string, number>>(
     initialValues?.categoryScores ?? {}
   );
 
+  function clearCategory(categoryId: string) {
+    setCategoryScores((prev) => {
+      const next = { ...prev };
+      delete next[categoryId];
+      return next;
+    });
+  }
+
   return (
-    <ThemedView type="backgroundElement" style={styles.form}>
-      <ThemedText type="smallBold">Overall rating</ThemedText>
-      <StarRating value={overallRating} onChange={setOverallRating} size={28} />
+    <View style={styles.form}>
+      <ThemedText type="subtitle">{isEditing ? 'Edit your review' : 'Write a review'}</ThemedText>
 
-      {categories.map((category) => (
-        <ThemedView key={category.id} type="backgroundElement" style={styles.categoryRow}>
-          <ThemedText type="small" style={styles.categoryLabel}>
-            {category.label}
+      <View style={styles.field}>
+        <View style={styles.valueRow}>
+          <ThemedText type="heading">Overall rating</ThemedText>
+          {overallRating === null ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              Required
+            </ThemedText>
+          ) : (
+            <ThemedText type="title">{formatRating(overallRating)}</ThemedText>
+          )}
+        </View>
+        <RatingSlider value={overallRating} onChange={setOverallRating} />
+      </View>
+
+      <View style={styles.section}>
+        <View style={styles.valueRow}>
+          <ThemedText type="heading">Rate the details</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            Optional
           </ThemedText>
-          <StarRating
-            value={categoryScores[category.id] ?? 0}
-            onChange={(score) => setCategoryScores((prev) => ({ ...prev, [category.id]: score }))}
-          />
-        </ThemedView>
-      ))}
+        </View>
+        {categories.map((category) => {
+          const score = categoryScores[category.id];
+          const isRated = score !== undefined;
+          return (
+            <View key={category.id} style={styles.field}>
+              <View style={styles.valueRow}>
+                <ThemedText type="small" style={styles.categoryLabel}>
+                  {category.label}
+                </ThemedText>
+                {isRated ? (
+                  <View style={styles.ratedValue}>
+                    <ThemedText type="smallBold">{formatRating(score)}</ThemedText>
+                    <IconButton
+                      icon="close"
+                      label={`Clear ${category.label} rating`}
+                      onPress={() => clearCategory(category.id)}
+                      scale={1.6}
+                    />
+                  </View>
+                ) : (
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Not rated
+                  </ThemedText>
+                )}
+              </View>
+              <RatingSlider
+                value={isRated ? score : null}
+                onChange={(next) => setCategoryScores((prev) => ({ ...prev, [category.id]: next }))}
+              />
+            </View>
+          );
+        })}
+      </View>
 
-      <ThemedTextInput
-        placeholder="Share more about your experience (optional)"
-        value={body}
-        onChangeText={setBody}
-        multiline
-        style={styles.body}
-      />
+      <View style={styles.field}>
+        <ThemedText type="heading">Your experience</ThemedText>
+        <ThemedTextInput
+          placeholder="What should other students know? (optional)"
+          value={body}
+          onChangeText={setBody}
+          multiline
+          style={[styles.body, { minHeight: Typography.bodyLarge.lineHeight * fontScale * 4 }]}
+        />
+      </View>
 
-      {error && (
-        <ThemedText themeColor="danger" type="small">
-          {error}
-        </ThemedText>
-      )}
 
-      <ThemedButton
-        label="Save review"
-        onPress={() => onSubmit({ overallRating, body, categoryScores })}
-        loading={isSubmitting}
-        disabled={isSubmitting || overallRating === 0}
-      />
-      <ThemedButton label="Cancel" variant="secondary" onPress={onCancel} disabled={isSubmitting} />
-    </ThemedView>
+      <View style={styles.actions}>
+        <ThemedButton label="Cancel" variant="secondary" onPress={onCancel} disabled={isSubmitting} style={styles.action} />
+        <ThemedButton
+          label={isEditing ? 'Save changes' : 'Post review'}
+          onPress={() => {
+            if (overallRating !== null) onSubmit({ overallRating, body, categoryScores });
+          }}
+          loading={isSubmitting}
+          disabled={isSubmitting || overallRating === null}
+          style={styles.action}
+        />
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   form: {
-    gap: Spacing.two,
-    padding: Spacing.three,
-    borderRadius: Shape.extraLarge,
+    gap: Spacing.four,
   },
-  categoryRow: {
+  section: {
+    gap: Spacing.three,
+  },
+  field: {
+    gap: Spacing.one,
+  },
+  valueRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: Spacing.two,
   },
   categoryLabel: {
     flex: 1,
   },
+  ratedValue: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   body: {
-    minHeight: 80,
     textAlignVertical: 'top',
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
+  action: {
+    flex: 1,
   },
 });

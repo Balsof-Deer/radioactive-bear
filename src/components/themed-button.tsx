@@ -1,7 +1,13 @@
 import { LoadingIndicator } from '@expo/ui/jetpack-compose';
 import { size } from '@expo/ui/jetpack-compose/modifiers';
 import { Pressable, StyleSheet, useWindowDimensions, type PressableProps } from 'react-native';
-import Animated, { interpolate, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, {
+  interpolate,
+  interpolateColor,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
 
 import { ThemedHost } from '@/components/themed-host';
 import { ThemedText } from '@/components/themed-text';
@@ -10,16 +16,21 @@ import { useTheme } from '@/hooks/use-theme';
 
 type ThemedButtonProps = Omit<PressableProps, 'children'> & {
   label: string;
-  // primary = M3 filled button, secondary = M3 tonal button.
-  variant?: 'primary' | 'secondary';
+  // primary = M3 filled button (forest green), secondary = M3 tonal
+  // button (sage), danger = tonal button in the error colours, for
+  // destructive actions like deleting. text / textDanger = M3 text
+  // buttons (no container until pressed), for quieter actions.
+  // destructive = filled error-coloured button, for confirming a delete.
+  variant?: 'primary' | 'secondary' | 'danger' | 'destructive' | 'text' | 'textDanger';
   loading?: boolean;
 };
 
 // Everything is relative rather than fixed pixels. Padding is a ratio of
 // the label's line height (scaled by the phone's text-size setting), so a
-// standard button is 40 tall at default text size and grows with it.
-const LABEL_LINE_HEIGHT = Typography.titleSmall.lineHeight;
-const VERTICAL_PADDING_RATIO = 0.5;
+// standard button is 44 tall at default text size (the spec's minimum
+// touch target) and grows with it.
+const LABEL_LINE_HEIGHT = Typography.bodyMediumBold.lineHeight;
+const VERTICAL_PADDING_RATIO = 0.6;
 const HORIZONTAL_PADDING_RATIO = 0.8;
 const INDICATOR_RATIO = 1.4;
 // Corner radius as a fraction of the button's measured height: fully round
@@ -56,10 +67,33 @@ export function ThemedButton({
       height.get() * interpolate(pressProgress.get(), [0, 1], [RESTING_RADIUS_RATIO, PRESSED_RADIUS_RATIO]),
   }));
 
-  const containerColor = variant === 'primary' ? theme.primary : theme.secondaryContainer;
-  const contentColor = variant === 'primary' ? theme.onPrimary : theme.onSecondaryContainer;
+  const isTextButton = variant === 'text' || variant === 'textDanger';
+  const containerColor = {
+    primary: theme.primary,
+    secondary: theme.secondaryContainer,
+    danger: theme.errorContainer,
+    destructive: theme.error,
+    text: 'transparent',
+    textDanger: 'transparent',
+  }[variant];
+  const contentColor = {
+    primary: theme.onPrimary,
+    secondary: theme.onSecondaryContainer,
+    danger: theme.onErrorContainer,
+    destructive: theme.onError,
+    text: theme.primary,
+    textDanger: theme.error,
+  }[variant];
   // While loading, keep the button's colors so the indicator stays visible.
   const isDimmed = disabled && !loading;
+  // Text buttons show an M3 state layer (content colour at 12%) while pressed.
+  const stateLayerRest = withAlpha(contentColor, 0);
+  const stateLayerPressed = withAlpha(contentColor, 0.12);
+  const stateLayerStyle = useAnimatedStyle(() =>
+    isTextButton
+      ? { backgroundColor: interpolateColor(pressProgress.get(), [0, 1], [stateLayerRest, stateLayerPressed]) }
+      : {}
+  );
 
   return (
     <Pressable
@@ -85,8 +119,9 @@ export function ThemedButton({
             paddingVertical,
             paddingHorizontal: lineHeight * HORIZONTAL_PADDING_RATIO,
           },
-          { backgroundColor: isDimmed ? withAlpha(theme.onSurface, 0.12) : containerColor },
+          { backgroundColor: isDimmed && !isTextButton ? withAlpha(theme.onSurface, 0.12) : containerColor },
           shapeStyle,
+          stateLayerStyle,
         ]}>
         {loading ? (
           <ThemedHost matchContents>

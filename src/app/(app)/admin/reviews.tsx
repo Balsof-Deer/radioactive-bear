@@ -1,18 +1,22 @@
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
+import { EmptyState } from '@/components/empty-state';
 import { PageScreen } from '@/components/page-screen';
-import { StarRating } from '@/components/star-rating';
 import { ThemedButton } from '@/components/themed-button';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Shape, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { fetchRecentReviews, type ModerationReview } from '@/lib/admin';
 import { useAdminBadges } from '@/lib/admin-badges';
+import { formatRating } from '@/lib/rating';
 import { deleteReview } from '@/lib/reviews';
+import { useConfirm } from '@/lib/confirm';
 
 export default function ReviewModerationScreen() {
+  const confirm = useConfirm();
+  const theme = useTheme();
   const [reviews, setReviews] = useState<ModerationReview[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,78 +47,85 @@ export default function ReviewModerationScreen() {
   }, [load]);
 
   function confirmDelete(review: ModerationReview) {
-    Alert.alert('Delete review?', 'This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteReview(review.id);
-            await load();
-          } catch (err) {
-            setError(err instanceof Error ? err.message : 'Could not delete this review.');
-          }
-        },
+    confirm({
+      title: 'Delete review?',
+      message: 'This cannot be undone.',
+      confirmLabel: 'Delete',
+      onConfirm: async () => {
+        try {
+          await deleteReview(review.id);
+          await load();
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Could not delete this review.');
+        }
       },
-    ]);
+    });
   }
 
   return (
     <PageScreen title="Review moderation" isLoading={isLoading} error={error}>
-      <ThemedText themeColor="textSecondary" type="small">
-        The 50 most recent reviews. Admins can delete a review but only its author can edit it.
-      </ThemedText>
-
-      {!isLoading && reviews.length === 0 && (
+      {reviews.length > 0 && (
         <ThemedText themeColor="textSecondary" type="small">
-          No reviews yet.
+          The 50 most recent reviews. Admins can delete a review but only its author can edit it.
         </ThemedText>
       )}
 
-      {reviews.map((review) => (
-        <ThemedView key={review.id} type="backgroundElement" style={styles.card}>
-          <ThemedText type="smallBold">{review.location_name ?? 'Unknown location'}</ThemedText>
-          <ThemedView type="backgroundElement" style={styles.headerRow}>
-            <ThemedText type="small">
+      {!isLoading && reviews.length === 0 && <EmptyState icon="rate_review" message="No reviews yet" />}
+
+      <View>
+        {reviews.map((review, index) => (
+          <View
+            key={review.id}
+            style={[
+              styles.item,
+              index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderColor: theme.outlineVariant },
+            ]}>
+            <View style={styles.titleRow}>
+              <ThemedText type="heading" style={styles.name}>
+                {review.location_name ?? 'Unknown location'}
+              </ThemedText>
+              <ThemedText type="heading" accessibilityLabel={`Rated ${formatRating(review.overall_rating)} out of 5`}>
+                {formatRating(review.overall_rating)}
+              </ThemedText>
+            </View>
+            <ThemedText type="small" themeColor="textSecondary">
               {review.reviewer_display_name ?? review.reviewer_email ?? 'Deleted user'}
             </ThemedText>
-            <StarRating value={review.overall_rating} size={16} />
-          </ThemedView>
-          {review.body && <ThemedText type="small">{review.body}</ThemedText>}
-          <ThemedText themeColor="textSecondary" type="small">
-            {new Date(review.created_at).toLocaleDateString()}
-          </ThemedText>
-          <ThemedView type="backgroundElement" style={styles.actions}>
-            <ThemedButton
-              label="Open location"
-              variant="secondary"
-              onPress={() => router.push(`/location/${review.location_id}`)}
-            />
-            <ThemedButton label="Delete" variant="secondary" onPress={() => confirmDelete(review)} />
-          </ThemedView>
-        </ThemedView>
-      ))}
+            {review.body && <ThemedText type="small">{review.body}</ThemedText>}
+            <ThemedText type="label" themeColor="textSecondary">
+              {new Date(review.created_at).toLocaleDateString()}
+            </ThemedText>
+            <View style={styles.actions}>
+              <ThemedButton
+                label="Open location"
+                variant="text"
+                onPress={() => router.push(`/location/${review.location_id}`)}
+              />
+              <ThemedButton label="Delete" variant="textDanger" onPress={() => confirmDelete(review)} />
+            </View>
+          </View>
+        ))}
+      </View>
     </PageScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
+  item: {
     gap: Spacing.one,
-    padding: Spacing.three,
-    borderRadius: Shape.extraLarge,
+    paddingVertical: Spacing.three,
   },
-  headerRow: {
+  titleRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'baseline',
     gap: Spacing.two,
+  },
+  name: {
+    flex: 1,
   },
   actions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: Spacing.two,
-    marginTop: Spacing.two,
+    marginTop: Spacing.one,
   },
 });

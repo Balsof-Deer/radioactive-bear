@@ -1,12 +1,8 @@
-import { isDynamicColorAvailable } from '@expo/ui/jetpack-compose';
-import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
-import ColorPicker, { HueCircular, Panel1 } from 'reanimated-color-picker';
+import { Pressable, StyleSheet, useWindowDimensions } from 'react-native';
 
-import { ThemedButton } from '@/components/themed-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { ACCENT_PRESETS, DEFAULT_ACCENT, Shape, Spacing, WALLPAPER_ACCENT } from '@/constants/theme';
+import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useThemePreference, type ThemeMode } from '@/lib/theme-preference';
 
@@ -16,42 +12,19 @@ const MODES: { label: string; value: ThemeMode }[] = [
   { label: 'Dark', value: 'dark' },
 ];
 
-type AppearanceSettingsProps = {
-  // Lets the parent pause its own scrolling while the color wheel is
-  // open, so dragging around the wheel doesn't scroll the page instead.
-  onPickingChange: (isPicking: boolean) => void;
-};
-
-export function AppearanceSettings({ onPickingChange }: AppearanceSettingsProps) {
+// Light / dark / system. The brand colour is fixed; the accent picker was
+// removed in the Warm Academic redesign (a theme colour is to be decided).
+export function AppearanceSettings() {
   const theme = useTheme();
-  const { mode, setMode, accent, setAccent } = useThemePreference();
-  const [isPicking, setIsPicking] = useState(false);
-  const isWallpaper = accent === WALLPAPER_ACCENT;
-  const [draft, setDraft] = useState(isWallpaper ? DEFAULT_ACCENT : accent);
-
-  const isCustom =
-    !isWallpaper && !ACCENT_PRESETS.some((preset) => preset.value.toLowerCase() === accent.toLowerCase());
-
-  function openPicker() {
-    setDraft(isWallpaper ? DEFAULT_ACCENT : accent);
-    setIsPicking(true);
-    onPickingChange(true);
-  }
-
-  function closePicker() {
-    setIsPicking(false);
-    onPickingChange(false);
-  }
-
-  function applyDraft() {
-    setAccent(draft);
-    closePicker();
-  }
+  const { mode, setMode } = useThemePreference();
+  const { fontScale } = useWindowDimensions();
+  // At least a 44px touch target at default text size, growing with it.
+  const segmentHeight = Typography.bodyMediumBold.lineHeight * fontScale * 2.2;
 
   return (
     <ThemedView style={styles.section}>
-      <ThemedText type="smallBold">Appearance</ThemedText>
-      <ThemedView type="backgroundElement" style={styles.segmented}>
+      <ThemedText type="subtitle">Appearance</ThemedText>
+      <ThemedView style={[styles.segmented, { backgroundColor: theme.surfaceContainerLow, borderColor: theme.outlineVariant }]}>
         {MODES.map((option) => {
           const selected = option.value === mode;
           return (
@@ -60,90 +33,20 @@ export function AppearanceSettings({ onPickingChange }: AppearanceSettingsProps)
               accessibilityRole="button"
               accessibilityState={{ selected }}
               onPress={() => setMode(option.value)}
-              style={[styles.segment, selected && { backgroundColor: theme.tint }]}>
+              style={[
+                styles.segment,
+                { minHeight: segmentHeight },
+                selected && { backgroundColor: theme.primaryContainer },
+              ]}>
               <ThemedText
                 type="smallBold"
-                style={selected ? { color: theme.onTint } : undefined}
-                themeColor={selected ? undefined : 'textSecondary'}>
+                style={{ color: selected ? theme.onPrimaryContainer : theme.onSurfaceVariant }}>
                 {option.label}
               </ThemedText>
             </Pressable>
           );
         })}
       </ThemedView>
-
-      <ThemedText type="smallBold">Accent color</ThemedText>
-      <View style={styles.swatchRow}>
-        {ACCENT_PRESETS.map((preset) => {
-          const selected = preset.value.toLowerCase() === accent.toLowerCase();
-          return (
-            <Pressable
-              key={preset.value}
-              accessibilityRole="button"
-              accessibilityLabel={preset.label}
-              accessibilityState={{ selected }}
-              onPress={() => setAccent(preset.value)}
-              style={[
-                styles.swatch,
-                { backgroundColor: preset.value, borderColor: selected ? theme.text : 'transparent' },
-              ]}
-            />
-          );
-        })}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Custom color"
-          accessibilityState={{ selected: isCustom }}
-          onPress={openPicker}
-          style={[
-            styles.swatch,
-            styles.customSwatch,
-            {
-              backgroundColor: isCustom ? accent : theme.backgroundElement,
-              borderColor: isCustom ? theme.text : theme.backgroundSelected,
-            },
-          ]}>
-          {!isCustom && <ThemedText type="smallBold">+</ThemedText>}
-        </Pressable>
-      </View>
-
-      {/* Material You colors from the wallpaper need Android 12 or newer. */}
-      {isDynamicColorAvailable && (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ selected: isWallpaper }}
-          onPress={() => setAccent(WALLPAPER_ACCENT)}
-          style={[
-            styles.wallpaperChip,
-            isWallpaper
-              ? { backgroundColor: theme.secondaryContainer, borderColor: theme.secondaryContainer }
-              : { borderColor: theme.outline },
-          ]}>
-          <ThemedText
-            type="smallBold"
-            style={{ color: isWallpaper ? theme.onSecondaryContainer : theme.onSurfaceVariant }}>
-            Use wallpaper colors
-          </ThemedText>
-        </Pressable>
-      )}
-
-      {isPicking && (
-        <ThemedView type="backgroundElement" style={styles.pickerCard}>
-          <ColorPicker value={draft} onCompleteJS={(colors) => setDraft(colors.hex)} style={styles.picker}>
-            <HueCircular containerStyle={styles.hueContainer}>
-              <Panel1 style={styles.panel} />
-            </HueCircular>
-          </ColorPicker>
-
-          <View style={styles.previewRow}>
-            <View style={[styles.previewSwatch, { backgroundColor: draft }]} />
-            <ThemedText type="small">{draft.toUpperCase()}</ThemedText>
-          </View>
-
-          <ThemedButton label="Use this color" onPress={applyDraft} />
-          <ThemedButton label="Cancel" variant="secondary" onPress={closePicker} />
-        </ThemedView>
-      )}
     </ThemedView>
   );
 }
@@ -154,65 +57,15 @@ const styles = StyleSheet.create({
   },
   segmented: {
     flexDirection: 'row',
-    borderRadius: Spacing.five,
-    padding: Spacing.half,
-    gap: Spacing.half,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    padding: Spacing.one,
+    gap: Spacing.one,
   },
   segment: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: Spacing.two,
-    borderRadius: Spacing.five,
-  },
-  swatchRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.three,
-  },
-  swatch: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 3,
-  },
-  customSwatch: {
-    alignItems: 'center',
     justifyContent: 'center',
-  },
-  wallpaperChip: {
-    alignSelf: 'flex-start',
-    minHeight: 32,
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.three,
-    borderRadius: Shape.small,
-    borderWidth: 1,
-  },
-  pickerCard: {
-    gap: Spacing.three,
-    padding: Spacing.three,
-    borderRadius: Shape.extraLarge,
-  },
-  picker: {
-    width: '80%',
-    alignSelf: 'center',
-  },
-  hueContainer: {
-    justifyContent: 'center',
-  },
-  panel: {
-    width: '70%',
-    height: '70%',
-    alignSelf: 'center',
-    borderRadius: Spacing.three,
-  },
-  previewRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-  },
-  previewSwatch: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    borderRadius: Radius.full,
   },
 });

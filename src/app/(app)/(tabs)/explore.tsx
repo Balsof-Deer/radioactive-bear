@@ -1,79 +1,149 @@
-import { Camera, Map, UserLocation, type CameraRef } from '@maplibre/maplibre-react-native';
+import { Camera, Map, UserLocation, type CameraRef, type MapRef } from '@maplibre/maplibre-react-native';
+import * as Location from 'expo-location';
 import { router } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StyleSheet, useColorScheme, useWindowDimensions, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { LocationCard } from '@/components/map/location-card';
+import { IconButton } from '@/components/icon-button';
+import { Loading } from '@/components/loading';
 import { LocationMarker } from '@/components/map/location-marker';
 import { LocationSearchBar } from '@/components/map/location-search-bar';
-import { MenuButton } from '@/components/menu-button';
+import { SpotSheet } from '@/components/map/spot-sheet';
 import { ThemedButton } from '@/components/themed-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { DEFAULT_RADIUS_KM, MAP_STYLE_URL } from '@/constants/map';
-import { BottomTabInset, Shape, Spacing } from '@/constants/theme';
+import { DEFAULT_RADIUS_KM, STREET_ZOOM } from '@/constants/map';
+import { BottomTabInset, Elevation, Radius, Spacing, Typography } from '@/constants/theme';
 import { useNearbyLocations } from '@/hooks/use-nearby-locations';
 import { useTheme } from '@/hooks/use-theme';
+import { useAppMenu } from '@/lib/app-menu';
+import { distanceInMetres } from '@/lib/geo';
 import type { NearbyLocation } from '@/lib/locations';
+import { useWarmMapStyle } from '@/lib/map-style';
+import { useErrorToast } from '@/lib/toast';
+
+const PIN_TAP_GRACE_MS = 400;
+const LAST_KNOWN_MAX_AGE_MS = 5 * 60 * 1000;
+const RECENTER_CORRECTION_METRES = 25;
 
 export default function ExploreScreen() {
   const theme = useTheme();
+  const isDark = useColorScheme() === 'dark';
+  const { openMenu } = useAppMenu();
+  const { fontScale } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const mapStyle = useWarmMapStyle(theme, isDark);
   const [selectedLocation, setSelectedLocation] = useState<NearbyLocation | null>(null);
   const [isPlacingPin, setIsPlacingPin] = useState(false);
   const cameraRef = useRef<CameraRef>(null);
+  const mapRef = useRef<MapRef>(null);
+  // When a pin was last tapped, so the same tap reaching the map underneath
+  // doesn't immediately close the sheet it just opened.
+  const lastPinPressAt = useRef(0);
   const { permission, userLocation, locations, isLoading, error, requestLocation } =
     useNearbyLocations(DEFAULT_RADIUS_KM);
+  useErrorToast(error);
 
-  if (permission === 'checking') {
+  if (permission === 'checking' || (permission === 'granted' && !userLocation)) {
     return (
       <ThemedView style={styles.centered}>
-        <ActivityIndicator />
+        <Loading />
       </ThemedView>
     );
   }
 
-  if (permission === 'denied') {
+  if (permission === 'denied' || !userLocation) {
+    const iconSize = Typography.bodyLarge.lineHeight * fontScale * 1.5;
     return (
       <ThemedView style={styles.centered}>
         <SafeAreaView style={styles.deniedContent}>
-          <ThemedText type="subtitle">Location access needed</ThemedText>
-          <ThemedText themeColor="textSecondary" style={styles.deniedText}>
-            DangerBear uses your location to show nearby places and filter results by distance.
-            Enable location access to continue.
+          <View style={[styles.deniedIcon, { backgroundColor: theme.primaryContainer, padding: iconSize / 2 }]}>
+            <SymbolView
+              name={{ android: 'location_off', web: 'location_off' }}
+              size={iconSize}
+              tintColor={theme.onPrimaryContainer}
+            />
+          </View>
+          <ThemedText type="title" style={styles.centerText}>
+            Turn on location to explore
           </ThemedText>
-          <ThemedButton label="Try again" onPress={requestLocation} />
+          <ThemedText themeColor="textSecondary" style={styles.centerText}>
+            DangerBear uses your location to show nearby places and filter results by distance.
+          </ThemedText>
+          <ThemedButton label="Allow location access" onPress={requestLocation} />
         </SafeAreaView>
       </ThemedView>
     );
   }
 
-  if (!userLocation) {
-    return (
-      <ThemedView style={styles.centered}>
-        <ActivityIndicator />
-      </ThemedView>
-    );
-  }
+  // MapLibre's compass (shown when the map is rotated) defaults to the top
+  // right, under the floating search row; place it just below that row.
+  // The row is as tall as the 44px-at-default floating controls.
+  const searchRowHeight = Typography.bodyLarge.lineHeight * fontScale * 2;
+  const compassPosition = { top: insets.top + Spacing.two + searchRowHeight + Spacing.two, right: Spacing.three };
 
   function handleSelect(location: NearbyLocation) {
+    lastPinPressAt.current = Date.now();
     setSelectedLocation(location);
     cameraRef.current?.flyTo({ center: [location.longitude, location.latitude], duration: 500 });
   }
 
   function handleMapPress(event: { nativeEvent: { lngLat: [number, number] } }) {
-    if (!isPlacingPin) return;
+    if (!isPlacingPin) {
+      // Tapping the map outside the sheet closes it.
+      if (Date.now() - lastPinPressAt.current > PIN_TAP_GRACE_MS) setSelectedLocation(null);
+      return;
+    }
     const [lng, lat] = event.nativeEvent.lngLat;
     setIsPlacingPin(false);
     router.push({ pathname: '/add-location', params: { lat: String(lat), lng: String(lng) } });
   }
 
+  // Moves instantly to the phone's last known position (or where the map
+  // loaded), zooming in to street level if the map is zoomed out further,
+  // then corrects with a fresh GPS fix only if the student has moved. A
+  // fresh fix alone can take several seconds, especially indoors.
+  async function recenter() {
+    const zoom = await mapRef.current?.getZoom().catch(() => undefined);
+    const zoomIn = zoom === undefined || zoom < STREET_ZOOM ? { zoom: STREET_ZOOM } : {};
+
+    const lastKnown = await Location.getLastKnownPositionAsync({ maxAge: LAST_KNOWN_MAX_AGE_MS }).catch(() => null);
+    const start = lastKnown?.coords ?? userLocation;
+    if (start) {
+      cameraRef.current?.flyTo({ center: [start.longitude, start.latitude], ...zoomIn, duration: 500 });
+    }
+
+    Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+      .then(({ coords }) => {
+        if (!start || distanceInMetres(start, coords) > RECENTER_CORRECTION_METRES) {
+          cameraRef.current?.flyTo({
+            center: [coords.longitude, coords.latitude],
+            ...(start ? {} : zoomIn),
+            duration: 500,
+          });
+        }
+      })
+      .catch(() => undefined);
+  }
+
+  function toggleAddMode() {
+    setSelectedLocation(null);
+    setIsPlacingPin((prev) => !prev);
+  }
+
   return (
     <View style={styles.container}>
-      <Map mapStyle={MAP_STYLE_URL} style={styles.map} onPress={handleMapPress}>
+      <Map
+        ref={mapRef}
+        mapStyle={mapStyle}
+        style={styles.map}
+        onPress={handleMapPress}
+        compassPosition={compassPosition}>
         <Camera
           ref={cameraRef}
-          initialViewState={{ center: [userLocation.longitude, userLocation.latitude], zoom: 14 }}
+          initialViewState={{ center: [userLocation.longitude, userLocation.latitude], zoom: STREET_ZOOM }}
         />
         <UserLocation />
         {locations.map((location) => (
@@ -88,59 +158,45 @@ export default function ExploreScreen() {
 
       <SafeAreaView style={styles.overlay} pointerEvents="box-none">
         <View style={styles.topSection} pointerEvents="box-none">
-          <View style={styles.searchWrapper}>
-            {/* Sits on the map, so it gets a surface behind it to stay visible. */}
-            <View style={[styles.menuButtonSurface, { backgroundColor: theme.surfaceContainerHigh }]}>
-              <MenuButton />
-            </View>
+          <View style={styles.searchRow}>
+            <IconButton icon="menu" label="Open menu" onPress={openMenu} variant="floating" />
             <View style={styles.searchBar}>
               <LocationSearchBar onSelect={handleSelect} />
             </View>
           </View>
 
           {isLoading && (
-            <View style={styles.topBar} pointerEvents="box-none">
-              <ActivityIndicator />
+            <View style={styles.loadingRow} pointerEvents="none">
+              <Loading scale={1.4} />
             </View>
           )}
+
+          {isPlacingPin && (
+            <View style={[styles.banner, { backgroundColor: theme.surfaceContainer }]}>
+              <ThemedText type="small">Tap the map where the new location is.</ThemedText>
+            </View>
+          )}
+
         </View>
-
-        {isPlacingPin && (
-          <ThemedView type="backgroundElement" style={styles.banner}>
-            <ThemedText type="small">Tap the map to place a pin for the new location.</ThemedText>
-          </ThemedView>
-        )}
-
-        {!isPlacingPin && error && (
-          <ThemedView type="backgroundElement" style={styles.banner}>
-            <ThemedText themeColor="danger" type="small">
-              {error}
-            </ThemedText>
-          </ThemedView>
-        )}
 
         <View style={styles.bottomSlot} pointerEvents="box-none">
+          <View style={styles.controls} pointerEvents="box-none">
+            <IconButton icon="my_location" label="Show my location" onPress={recenter} variant="floating" />
+            <IconButton
+              icon={isPlacingPin ? 'close' : 'add'}
+              label={isPlacingPin ? 'Cancel adding a location' : 'Add a location'}
+              onPress={toggleAddMode}
+              variant="filled"
+              containerColor={isPlacingPin ? theme.error : theme.primary}
+              iconColor={isPlacingPin ? theme.onError : theme.onPrimary}
+              scale={2.5}
+            />
+          </View>
+
           {selectedLocation && (
-            <View style={styles.cardWrapper}>
-              <LocationCard location={selectedLocation} onClose={() => setSelectedLocation(null)} />
-            </View>
+            <SpotSheet location={selectedLocation} onClose={() => setSelectedLocation(null)} />
           )}
         </View>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={isPlacingPin ? 'Cancel adding a location' : 'Add a location'}
-          onPress={() => {
-            setSelectedLocation(null);
-            setIsPlacingPin((prev) => !prev);
-          }}
-          style={[styles.fab, { backgroundColor: isPlacingPin ? theme.danger : theme.tint }]}>
-          <ThemedText
-            type="title"
-            style={[styles.fabLabel, { color: isPlacingPin ? theme.onError : theme.onTint }]}>
-            {isPlacingPin ? '×' : '+'}
-          </ThemedText>
-        </Pressable>
       </SafeAreaView>
     </View>
   );
@@ -163,7 +219,10 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
     alignItems: 'center',
   },
-  deniedText: {
+  deniedIcon: {
+    borderRadius: Radius.full,
+  },
+  centerText: {
     textAlign: 'center',
   },
   overlay: {
@@ -173,51 +232,33 @@ const styles = StyleSheet.create({
   topSection: {
     gap: Spacing.two,
     paddingTop: Spacing.two,
+    paddingHorizontal: Spacing.three,
   },
-  searchWrapper: {
+  searchRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: Spacing.two,
-    paddingHorizontal: Spacing.three,
-  },
-  menuButtonSurface: {
-    borderRadius: Shape.full,
-    elevation: 3,
   },
   searchBar: {
     flex: 1,
   },
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
+  loadingRow: {
     alignItems: 'center',
-    paddingHorizontal: Spacing.three,
   },
   banner: {
-    marginHorizontal: Spacing.three,
-    borderRadius: Spacing.two,
+    borderRadius: Radius.lg,
     padding: Spacing.three,
+    boxShadow: Elevation.level2,
   },
   bottomSlot: {
     paddingHorizontal: Spacing.three,
     paddingBottom: BottomTabInset + Spacing.two,
+    gap: Spacing.three,
   },
-  cardWrapper: {
-    marginRight: 72,
-  },
-  fab: {
-    position: 'absolute',
-    right: Spacing.three,
-    bottom: BottomTabInset + Spacing.five,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  // Map controls sit on the right edge, just above the spot sheet.
+  controls: {
+    alignSelf: 'flex-end',
     alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 4,
-  },
-  fabLabel: {
-    fontSize: 28,
-    lineHeight: 32,
+    gap: Spacing.three,
   },
 });
