@@ -176,12 +176,14 @@ export type MyLocation = {
   average_rating: number | null;
   review_count: number;
   created_at: string;
+  // The admin's reason, shown to the submitter when rejected.
+  admin_rejection_reason: string | null;
 };
 
 export async function fetchMyLocations(userId: string): Promise<MyLocation[]> {
   const { data, error } = await supabase
     .from('locations_with_status')
-    .select('id,name,address,status,average_rating,review_count,created_at')
+    .select('id,name,address,status,average_rating,review_count,created_at,admin_rejection_reason')
     .eq('submitted_by', userId)
     .order('created_at', { ascending: false });
 

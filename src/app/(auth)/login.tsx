@@ -72,6 +72,13 @@ export default function LoginScreen() {
             accessibilityLabel="Password"
           />
         </LabeledField>
+        <View style={styles.forgot}>
+          <ThemedButton
+            label="Forgot password?"
+            variant="text"
+            onPress={() => router.push({ pathname: '/(auth)/forgot-password', params: { email: email.trim() } })}
+          />
+        </View>
       </View>
 
       <ThemedButton label="Log in" onPress={handleSubmit} disabled={!canSubmit} loading={isSubmitting} />
@@ -92,6 +99,12 @@ const styles = StyleSheet.create({
   },
   fields: {
     gap: Spacing.three,
+  },
+  // Sits under the password field, against the right edge.
+  forgot: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: -Spacing.two,
   },
   footer: {
     flexDirection: 'row',

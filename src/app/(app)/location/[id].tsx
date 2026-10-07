@@ -1,7 +1,8 @@
 import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BackButton } from '@/components/back-button';
@@ -14,7 +15,8 @@ import { ThemedButton } from '@/components/themed-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedTextInput } from '@/components/themed-text-input';
 import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
+import { Tile } from '@/components/tile';
+import { MaxContentWidth, Radius, Spacing, Typography, withAlpha } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formatRating } from '@/lib/rating';
 import { useSession } from '@/lib/auth-context';
@@ -49,8 +51,12 @@ export default function LocationDetailScreen() {
   // review=1 (from the Explore spot sheet) opens straight into a new review.
   const { id, review: startWithReview } = useLocalSearchParams<{ id: string; review?: string }>();
   const scrollRef = useRef<ScrollView>(null);
-  const hasScrolledToForm = useRef(false);
+  // Set when the review form should scroll into view once it appears
+  // (arriving via the review shortcut, or tapping Write a review).
+  const shouldScrollToForm = useRef(startWithReview === '1');
   const theme = useTheme();
+  const { fontScale } = useWindowDimensions();
+  const lineHeight = Typography.bodyMediumBold.lineHeight * fontScale;
   const { session, profile } = useSession();
 
   const [location, setLocation] = useState<NearbyLocation | null>(null);
@@ -121,6 +127,7 @@ export default function LocationDetailScreen() {
   const canAddPhotos = !!location && (isAdmin || isOwner);
 
   function openNewReviewForm() {
+    shouldScrollToForm.current = true;
     setEditingReview(null);
     setFormError(null);
     setIsFormOpen(true);
@@ -316,7 +323,11 @@ export default function LocationDetailScreen() {
                       : 'No reviews yet'
                   }
                   style={styles.ratingSummary}>
-                  <ThemedText type="title">{hasRating ? formatRating(location.average_rating) : 'New'}</ThemedText>
+                  <Tile color={theme.primary} size={lineHeight * 3.6}>
+                    <ThemedText type="title" style={{ color: theme.onPrimary }}>
+                      {hasRating ? formatRating(location.average_rating) : 'New'}
+                    </ThemedText>
+                  </Tile>
                   <ThemedText type="label" themeColor="textSecondary">
                     {hasRating
                       ? `${location.review_count} review${location.review_count === 1 ? '' : 's'}`
@@ -406,15 +417,14 @@ export default function LocationDetailScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <ThemedText type="subtitle">Reviews</ThemedText>
-              {!isFormOpen && <ThemedButton label="Write a review" onPress={openNewReviewForm} />}
             </View>
 
             {isFormOpen && (
               <View
                 onLayout={(event) => {
-                  // Arriving via the review shortcut: bring the form into view once.
-                  if (startWithReview === '1' && !hasScrolledToForm.current) {
-                    hasScrolledToForm.current = true;
+                  // Bring a newly opened form into view once.
+                  if (shouldScrollToForm.current) {
+                    shouldScrollToForm.current = false;
                     scrollRef.current?.scrollTo({ y: event.nativeEvent.layout.y, animated: true });
                   }
                 }}>
@@ -498,6 +508,26 @@ export default function LocationDetailScreen() {
             </View>
           )}
         </ScrollView>
+
+        {/* Pinned action bar: the main action as a full-width pill. */}
+        {!isFormOpen && !isEditingLocation && (
+          <View style={[styles.bottomBar, { backgroundColor: theme.surface, borderColor: theme.outlineVariant }]}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={openNewReviewForm}
+              android_ripple={{ color: withAlpha(theme.onPrimary, 0.16) }}
+              style={[styles.fab, { backgroundColor: theme.primary, minHeight: lineHeight * 2.6 }]}>
+              <SymbolView
+                name={{ android: 'rate_review', web: 'rate_review' }}
+                size={lineHeight * 1.2}
+                tintColor={theme.onPrimary}
+              />
+              <ThemedText type="smallBold" style={{ color: theme.onPrimary }}>
+                Write a review
+              </ThemedText>
+            </Pressable>
+          </View>
+        )}
       </SafeAreaView>
     </ThemedView>
   );
@@ -560,7 +590,21 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.half,
   },
   ratingSummary: {
-    alignItems: 'flex-end',
+    alignItems: 'center',
+    gap: Spacing.one,
+  },
+  bottomBar: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two + Spacing.one,
+  },
+  fab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.two,
+    borderRadius: Radius.full,
+    overflow: 'hidden',
   },
   callout: {
     borderRadius: Radius.md,

@@ -44,7 +44,7 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
   );
 }
 
-// Each app text style is a role from the spec's mobile type scale (Epilogue).
+// Each app text style is a role from the Warm Academic type scale (Source Serif 4 and DM Sans).
 const styles = StyleSheet.create({
   // Screen titles, spot names, profile name.
   title: Typography.display,

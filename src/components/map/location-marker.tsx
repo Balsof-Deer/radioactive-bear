@@ -25,8 +25,8 @@ const SELECTED_SCALE = 1.15;
 const SPRING = { damping: 14, stiffness: 260 };
 
 // Rating capsule pin: the location's real average rating, or "New" before
-// its first review. Approved = white, pending = mustard, rejected = brick
-// (only submitters and admins see those). Selected = forest green with one
+// its first review. Approved = white, pending = yellow, rejected = red
+// (only submitters and admins see those). Selected = the primary colour with one
 // ring pulse to show what changed.
 export function LocationMarker({ location, selected, onPress }: LocationMarkerProps) {
   const theme = useTheme();

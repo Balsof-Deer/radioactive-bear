@@ -9,8 +9,7 @@ export const LOCATION_STATUS_LABEL: Record<LocationStatus, string> = {
   rejected: 'Rejected',
 };
 
-// Spec semantic status colours: good (forest), moderate (mustard),
-// busy (brick). Each has a matching container colour for pills.
+// Semantic status colours: good (green), moderate (yellow), busy (red). Each has a matching container colour for pills.
 export const LOCATION_STATUS_COLOR: Record<LocationStatus, ThemeColor> = {
   pending_private: 'statusModerate',
   pending_public: 'statusModerate',

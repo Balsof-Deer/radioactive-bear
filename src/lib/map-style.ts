@@ -40,7 +40,7 @@ function warmColors(palette: ThemePalette, isDark: boolean): WarmMapColors {
         labelHalo: palette.surface,
       }
     : {
-        land: palette.surface, // oat
+        land: palette.surface, // ivory
         park: '#e3ecdf', // collegiate green quads
         water: '#d5e1e0',
         building: '#f3e9df',
@@ -49,8 +49,8 @@ function warmColors(palette: ThemePalette, isDark: boolean): WarmMapColors {
         roadCasing: palette.outlineVariant,
         rail: palette.outlineVariant,
         boundary: '#c9bcae',
-        label: palette.onSurface, // espresso
-        labelMuted: palette.onSurfaceVariant, // walnut
+        label: palette.onSurface, // near-black ink
+        labelMuted: palette.onSurfaceVariant,
         labelHalo: palette.surface,
       };
 }

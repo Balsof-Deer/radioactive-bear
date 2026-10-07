@@ -1,14 +1,15 @@
 import { router, type Href } from 'expo-router';
-import { SymbolView, type AndroidSymbol } from 'expo-symbols';
-import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { type AndroidSymbol } from 'expo-symbols';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ListGroup } from '@/components/list-group';
 import { MenuButton } from '@/components/menu-button';
 import { NotificationBadge } from '@/components/notification-badge';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth, Radius, Spacing, Typography, withAlpha } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useTabBarInset } from '@/hooks/use-tab-bar-inset';
 import type { AdminSection, BadgeCounts } from '@/lib/admin';
 import { useAdminBadges } from '@/lib/admin-badges';
 import { timeAgo } from '@/lib/time';
@@ -70,66 +71,36 @@ const LINKS: AdminLink[] = [
 ];
 
 export default function AdminHomeScreen() {
-  const theme = useTheme();
-  const { fontScale } = useWindowDimensions();
+  const tabBarInset = useTabBarInset();
   const { counts, checks } = useAdminBadges();
-  const iconSize = Typography.bodyLarge.lineHeight * fontScale;
 
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarInset + Spacing.three }]}>
           <View style={styles.titleRow}>
             <MenuButton />
             <ThemedText type="title">Admin</ThemedText>
           </View>
 
-          <View>
-            {LINKS.map((link, index) => {
+          <ListGroup
+            items={LINKS.map((link) => {
               const check = link.section ? checks[link.section] : undefined;
-              return (
-                // The whole row opens the section; the ripple is the M3 pressed state.
-                <Pressable
-                  key={link.label}
-                  accessibilityRole="button"
-                  accessibilityLabel={link.label}
-                  accessibilityHint={link.description}
-                  onPress={() => router.push(link.href)}
-                  android_ripple={{ color: withAlpha(theme.onSurface, 0.1) }}
-                  style={[
-                    styles.row,
-                    index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderColor: theme.outlineVariant },
-                  ]}>
-                  <View style={[styles.iconCircle, { backgroundColor: theme.primaryContainer, padding: iconSize * 0.4 }]}>
-                    <SymbolView
-                      name={{ android: link.icon, web: link.icon }}
-                      size={iconSize}
-                      tintColor={theme.onPrimaryContainer}
-                    />
-                  </View>
-                  <View style={styles.rowText}>
-                    <ThemedText type="heading">{link.label}</ThemedText>
-                    <ThemedText type="small" themeColor="textSecondary">
-                      {link.description}
-                    </ThemedText>
-                    {link.section && (
-                      <ThemedText type="label" themeColor="textSecondary">
-                        {check
-                          ? `Last checked by ${check.checked_by_name ?? 'a removed admin'}, ${timeAgo(check.last_checked_at)}`
-                          : 'Not checked yet'}
-                      </ThemedText>
-                    )}
-                  </View>
-                  {link.badge && counts && <NotificationBadge count={counts[link.badge]} />}
-                  <SymbolView
-                    name={{ android: 'chevron_right', web: 'chevron_right' }}
-                    size={iconSize}
-                    tintColor={theme.outline}
-                  />
-                </Pressable>
-              );
+              return {
+                key: link.label,
+                icon: link.icon,
+                title: link.label,
+                subtitle: link.description,
+                detail: link.section
+                  ? check
+                    ? `Last checked by ${check.checked_by_name ?? 'a removed admin'}, ${timeAgo(check.last_checked_at)}`
+                    : 'Not checked yet'
+                  : undefined,
+                trailing: link.badge && counts ? <NotificationBadge count={counts[link.badge]} /> : undefined,
+                onPress: () => router.push(link.href),
+              };
             })}
-          </View>
+          />
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
@@ -149,25 +120,11 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.two,
-    paddingBottom: BottomTabInset + Spacing.three,
     gap: Spacing.three,
   },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingVertical: Spacing.three,
-  },
-  iconCircle: {
-    borderRadius: Radius.full,
-  },
-  rowText: {
-    flex: 1,
-    gap: Spacing.half,
   },
 });

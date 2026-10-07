@@ -12,8 +12,8 @@ type TagPickerProps = {
   onToggle: (tagId: string) => void;
 };
 
-// Material 3 filter chips in the spec's look: warm outline when off, sage
-// with a check when on. At least 44 tall at default text size.
+// Filter chips in the Warm Academic look: outlined when off, filled in
+// the primary colour with a check when on. At least 44 tall at default text size.
 export function TagPicker({ tags, selectedTagIds, onToggle }: TagPickerProps) {
   const theme = useTheme();
   const { fontScale } = useWindowDimensions();
@@ -37,18 +37,18 @@ export function TagPicker({ tags, selectedTagIds, onToggle }: TagPickerProps) {
                 minHeight: chipHeight,
                 paddingHorizontal: lineHeight * 0.8,
                 gap: lineHeight * 0.3,
-                borderColor: selected ? theme.primaryContainer : theme.outlineVariant,
-                backgroundColor: selected ? theme.primaryContainer : theme.surfaceContainer,
+                borderColor: selected ? theme.primary : theme.outlineVariant,
+                backgroundColor: selected ? theme.primary : theme.surfaceContainerLowest,
               },
             ]}>
             {selected && (
               <SymbolView
                 name={{ android: 'check', web: 'check' }}
                 size={lineHeight * 0.9}
-                tintColor={theme.onPrimaryContainer}
+                tintColor={theme.onPrimary}
               />
             )}
-            <ThemedText type="smallBold" style={{ color: selected ? theme.onPrimaryContainer : theme.onSurfaceVariant }}>
+            <ThemedText type="smallBold" style={{ color: selected ? theme.onPrimary : theme.onSurfaceVariant }}>
               {tag.label}
             </ThemedText>
           </Pressable>

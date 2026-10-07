@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { Radius, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
 
 type PhotoGalleryProps = {
   urls: string[];
@@ -11,68 +10,52 @@ type PhotoGalleryProps = {
   placeName: string;
 };
 
-// Large swipeable hero photos with page dots. Width follows the space it's
-// given; height is a 4:3 ratio of that width.
+// Share of the width the main photo takes, so the next one peeks in from
+// the right as a cue to swipe (the M3 hero carousel). A single photo fills
+// the width.
+const ITEM_WIDTH_RATIO = 0.82;
+const HEIGHT_RATIO = 0.62;
+
+// Material 3 hero carousel: large rounded photos that snap one at a time,
+// with the next photo peeking in. Sizes follow the width it's given.
 export function PhotoGallery({ urls, placeName }: PhotoGalleryProps) {
-  const theme = useTheme();
   const [width, setWidth] = useState(0);
-  const [page, setPage] = useState(0);
 
   if (urls.length === 0) return null;
 
+  const itemWidth = urls.length === 1 ? width : width * ITEM_WIDTH_RATIO;
+  const height = width * HEIGHT_RATIO;
+
   return (
-    <View onLayout={(event) => setWidth(event.nativeEvent.layout.width)} style={styles.container}>
+    <View onLayout={(event) => setWidth(event.nativeEvent.layout.width)}>
       {width > 0 && (
         <ScrollView
           horizontal
-          pagingEnabled
           showsHorizontalScrollIndicator={false}
-          onMomentumScrollEnd={(event) => setPage(Math.round(event.nativeEvent.contentOffset.x / width))}
-          style={[styles.pager, { height: width * 0.75 }]}>
+          snapToInterval={itemWidth + Spacing.two}
+          decelerationRate="fast"
+          contentContainerStyle={styles.row}
+          style={{ height }}>
           {urls.map((url, index) => (
             <Image
               key={url}
               source={{ uri: url }}
-              style={{ width, height: width * 0.75 }}
+              style={[styles.photo, { width: itemWidth, height }]}
               contentFit="cover"
               accessibilityLabel={`Photo ${index + 1} of ${urls.length} of ${placeName}`}
             />
           ))}
         </ScrollView>
       )}
-      {urls.length > 1 && (
-        <View style={styles.dots} pointerEvents="none">
-          {urls.map((url, index) => (
-            <View
-              key={url}
-              style={[
-                styles.dot,
-                { backgroundColor: index === page ? theme.primary : theme.outlineVariant },
-              ]}
-            />
-          ))}
-        </View>
-      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  row: {
     gap: Spacing.two,
   },
-  pager: {
-    borderRadius: Radius.lg,
-    overflow: 'hidden',
-  },
-  dots: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: Spacing.one,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: Radius.full,
+  photo: {
+    borderRadius: Radius.xl,
   },
 });

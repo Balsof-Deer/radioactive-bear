@@ -11,15 +11,17 @@ import { ThemedButton } from '@/components/themed-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { DEFAULT_RADIUS_KM } from '@/constants/map';
-import { BottomTabInset, Elevation, MaxContentWidth, Radius, Spacing } from '@/constants/theme';
+import { Elevation, MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useNearbyLocations } from '@/hooks/use-nearby-locations';
 import { usePreferenceFilter } from '@/hooks/use-preference-filter';
+import { useTabBarInset } from '@/hooks/use-tab-bar-inset';
 import { useTheme } from '@/hooks/use-theme';
 import { useSession } from '@/lib/auth-context';
 import { distanceInMetres } from '@/lib/geo';
 import { useErrorToast } from '@/lib/toast';
 
 export default function HomeScreen() {
+  const tabBarInset = useTabBarInset();
   const theme = useTheme();
   const { profile } = useSession();
   const [radiusKm, setRadiusKm] = useState(DEFAULT_RADIUS_KM);
@@ -39,7 +41,7 @@ export default function HomeScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarInset + Spacing.three }]}>
           <View style={styles.headerRow}>
             <MenuButton />
             <ThemedText type="title" style={styles.greeting}>
@@ -103,6 +105,7 @@ export default function HomeScreen() {
                     key={location.id}
                     location={location}
                     showDivider
+                    showTile
                     distanceMetres={userLocation ? distanceInMetres(userLocation, location) : null}
                     matchesPreferences={isMatching && matches(location.id)}
                     onPress={(loc) => router.push(`/location/${loc.id}`)}
@@ -129,7 +132,6 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.two,
-    paddingBottom: BottomTabInset + Spacing.three,
     gap: Spacing.four,
   },
   headerRow: {

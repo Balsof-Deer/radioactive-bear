@@ -7,7 +7,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { PASSWORD_RULES } from '@/lib/password-rules';
 
 // Live list of the password rules under a new-password field: each one
-// ticks over to forest green as it's met.
+// ticks over to the success green as it's met.
 export function PasswordChecklist({ password }: { password: string }) {
   const theme = useTheme();
   const { fontScale } = useWindowDimensions();

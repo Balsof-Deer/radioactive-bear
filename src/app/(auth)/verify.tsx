@@ -7,7 +7,7 @@ import { LabeledField } from '@/components/labeled-field';
 import { ThemedButton } from '@/components/themed-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedTextInput } from '@/components/themed-text-input';
-import { Spacing, Typography } from '@/constants/theme';
+import { Font, Spacing, Typography } from '@/constants/theme';
 import { useSession } from '@/lib/auth-context';
 import { useErrorState, useToast } from '@/lib/toast';
 
@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
   },
   codeInput: {
-    fontFamily: Typography.display.fontFamily,
+    fontFamily: Font.serifSemiBold,
     textAlign: 'center',
   },
   secondary: {

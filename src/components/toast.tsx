@@ -36,8 +36,8 @@ const SPRING = { damping: 20, stiffness: 220 };
 const SWIPE_DISMISS_DISTANCE = 24;
 const SWIPE_DISMISS_VELOCITY = 0.4;
 
-// A pop-up card that springs in from the top, in the spec's colours: brick
-// tint for errors, sage for success. It disappears on its own; tap it or
+// A pop-up card that springs in from the top: error container for errors,
+// primary container for success. It disappears on its own; tap it or
 // swipe it up to dismiss sooner. Screen readers announce the message.
 export function Toast({ toast, onDismiss }: ToastProps) {
   const theme = useTheme();

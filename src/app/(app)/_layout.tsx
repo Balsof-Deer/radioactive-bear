@@ -10,10 +10,10 @@ export default function AppLayout() {
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="add-location" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="location-submitted" options={{ presentation: 'modal' }} />
           <Stack.Screen name="settings" />
           <Stack.Screen name="profile" />
-          <Stack.Screen name="my-reviews" />
-          <Stack.Screen name="my-locations" />
+          <Stack.Screen name="change-password" />
           <Stack.Screen name="location/[id]" />
           <Stack.Screen name="admin" />
         </Stack>

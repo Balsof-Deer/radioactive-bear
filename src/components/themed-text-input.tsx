@@ -4,8 +4,8 @@ import { StyleSheet, TextInput, useWindowDimensions, type TextInputProps } from 
 import { Radius, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-// Spec input: cream container with a warm 1px border that becomes a 2px
-// forest-green outline while focused (the M3 focus behaviour). Padding
+// Input: white field with a 1px warm border that becomes a 2px primary-colour outline
+// while focused (the M3 focus behaviour). Padding
 // shrinks by the same 1px so the text doesn't shift. Padding is relative to
 // the text's line height x the phone's text size (48 tall at default).
 export function ThemedTextInput({ style, onFocus, onBlur, ...rest }: TextInputProps) {
@@ -26,7 +26,7 @@ export function ThemedTextInput({ style, onFocus, onBlur, ...rest }: TextInputPr
         },
         {
           color: theme.onSurface,
-          backgroundColor: theme.surfaceContainerLow,
+          backgroundColor: theme.surfaceContainerLowest,
           borderColor: isFocused ? theme.primary : theme.outlineVariant,
         },
         style,

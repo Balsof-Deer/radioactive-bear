@@ -31,6 +31,10 @@ type AuthContextValue = {
   // template shows {{ .Token }} instead of a link).
   verifySignUpCode: (email: string, code: string) => Promise<AuthResult>;
   resendSignUpCode: (email: string) => Promise<AuthResult>;
+  // Forgotten password, also by emailed code (the "Reset password" email
+  // template shows {{ .Token }} instead of a link).
+  sendPasswordResetCode: (email: string) => Promise<AuthResult>;
+  resetPasswordWithCode: (email: string, code: string, newPassword: string) => Promise<AuthResult>;
   refreshProfile: () => Promise<void>;
 };
 
@@ -104,6 +108,28 @@ export function AuthProvider({ children }: PropsWithChildren) {
     async resendSignUpCode(email) {
       const { error } = await supabase.auth.resend({ type: 'signup', email });
       return { error: error?.message ?? null, code: error?.code };
+    },
+    // Supabase answers the same way whether or not the email has an
+    // account, so this can't be used to find out who's registered.
+    async sendPasswordResetCode(email) {
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      return { error: error?.message ?? null, code: error?.code };
+    },
+    // A correct code signs the user in (the auth listener then opens the
+    // app); the new password is saved straight after, on that session.
+    async resetPasswordWithCode(email, code, newPassword) {
+      const { error: verifyError } = await supabase.auth.verifyOtp({ email, token: code, type: 'recovery' });
+      if (verifyError) {
+        return { error: verifyError.message, code: verifyError.code };
+      }
+      const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+      if (updateError) {
+        return {
+          error: `You're signed in, but the new password wasn't saved: ${updateError.message} Set it again from Change password.`,
+          code: updateError.code,
+        };
+      }
+      return { error: null };
     },
     async refreshProfile() {
       if (!session) return;

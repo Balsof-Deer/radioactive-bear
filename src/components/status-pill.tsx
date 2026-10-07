@@ -11,7 +11,7 @@ type StatusPillProps = {
   containerColor: ThemeColor;
 };
 
-// Small rounded tag for a status (the spec's semantic status pills).
+// Small rounded tag for a status (M3 small corner, semantic container colours).
 export function StatusPill({ label, color, containerColor }: StatusPillProps) {
   const theme = useTheme();
   return (
@@ -27,7 +27,7 @@ const styles = StyleSheet.create({
   pill: {
     alignSelf: 'flex-start',
     borderRadius: Radius.sm,
-    paddingHorizontal: Spacing.two,
-    paddingVertical: Spacing.half,
+    paddingHorizontal: Spacing.two + Spacing.one,
+    paddingVertical: Spacing.one,
   },
 });

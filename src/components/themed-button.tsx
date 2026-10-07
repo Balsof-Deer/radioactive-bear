@@ -16,8 +16,8 @@ import { useTheme } from '@/hooks/use-theme';
 
 type ThemedButtonProps = Omit<PressableProps, 'children'> & {
   label: string;
-  // primary = M3 filled button (forest green), secondary = M3 tonal
-  // button (sage), danger = tonal button in the error colours, for
+  // primary = M3 filled button (the primary colour), secondary = M3 tonal
+  // button (sand), danger = tonal button in the error colours, for
   // destructive actions like deleting. text / textDanger = M3 text
   // buttons (no container until pressed), for quieter actions.
   // destructive = filled error-coloured button, for confirming a delete.

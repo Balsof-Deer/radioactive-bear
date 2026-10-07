@@ -1,9 +1,18 @@
 import { BlurView } from 'expo-blur';
 import { router, usePathname, type Href } from 'expo-router';
 import { SymbolView, type AndroidSymbol } from 'expo-symbols';
-import { useEffect, useMemo, useState, type RefObject } from 'react';
+import { useEffect, useMemo, useState, type PropsWithChildren, type RefObject } from 'react';
 import { BackHandler, PanResponder, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, {
+  Easing,
+  Extrapolation,
+  interpolate,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+  type SharedValue,
+} from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -20,9 +29,9 @@ type MenuItem = {
 };
 
 const ITEMS: MenuItem[] = [
+  { label: 'My spots', href: '/my-spots', icon: 'bookmark' },
   { label: 'Profile', href: '/profile', icon: 'account_circle' },
-  { label: 'My reviews', href: '/my-reviews', icon: 'rate_review' },
-  { label: 'My locations', href: '/my-locations', icon: 'location_on' },
+  { label: 'Change password', href: '/change-password', icon: 'lock' },
   { label: 'Settings', href: '/settings', icon: 'settings' },
 ];
 
@@ -39,7 +48,23 @@ const BLUR_INTENSITY = 60;
 // Closing distance (share of the panel width) or speed for a swipe.
 const SWIPE_CLOSE_RATIO = 0.3;
 const SWIPE_CLOSE_VELOCITY = 0.5;
-const SPRING = { damping: 26, stiffness: 220 };
+// Material 3 motion for a drawer: opening uses the emphasized-decelerate
+// curve (quick start, long gentle settle, no overshoot); closing uses the
+// shorter emphasized-accelerate curve; a swipe that doesn't close snaps
+// back on the standard curve.
+const OPEN = { duration: 400, easing: Easing.bezier(0.05, 0.7, 0.1, 1) };
+const CLOSE = { duration: 200, easing: Easing.bezier(0.3, 0, 0.8, 0.15) };
+const SETTLE = { duration: 250, easing: Easing.bezier(0.2, 0, 0, 1) };
+// With "reduce motion" on, the menu only fades, and quickly.
+const FADE = { duration: 150, easing: Easing.linear };
+// The scrim reaches full strength in the first part of the opening, so the
+// screen behind dims just ahead of the panel.
+const SCRIM_LEAD = 0.6;
+// The panel's contents arrive one after another while it opens: each starts
+// a little later in the opening (as a share of it) and takes a fixed share.
+const STAGGER_START = 0.25;
+const STAGGER_STEP = 0.06;
+const STAGGER_WINDOW = 0.45;
 
 type AppMenuProps = {
   isOpen: boolean;
@@ -49,7 +74,8 @@ type AppMenuProps = {
 };
 
 // Material 3 modal navigation drawer: slides in from the left over a
-// dimmed scrim. Closes on a scrim tap, a swipe left, or the back button.
+// dimmed scrim, its contents following in a short stagger. Closes on a
+// scrim tap, a swipe left, or the back button.
 export function AppMenu({ isOpen, onClose, blurTarget }: AppMenuProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -58,6 +84,7 @@ export function AppMenu({ isOpen, onClose, blurTarget }: AppMenuProps) {
   const { width, fontScale } = useWindowDimensions();
   const panelWidth = width * PANEL_WIDTH_RATIO;
   const lineHeight = Typography.bodyMediumBold.lineHeight * fontScale;
+  const reduceMotion = useReducedMotion();
 
   // 0 = closed, 1 = open.
   const progress = useSharedValue(0);
@@ -69,12 +96,13 @@ export function AppMenu({ isOpen, onClose, blurTarget }: AppMenuProps) {
   }
 
   useEffect(() => {
+    const timing = reduceMotion ? FADE : isOpen ? OPEN : CLOSE;
     progress.set(
-      withSpring(isOpen ? 1 : 0, SPRING, (finished) => {
+      withTiming(isOpen ? 1 : 0, timing, (finished) => {
         if (finished && !isOpen) scheduleOnRN(setIsBlurMounted, false);
       })
     );
-  }, [isOpen, progress]);
+  }, [isOpen, progress, reduceMotion]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -88,8 +116,7 @@ export function AppMenu({ isOpen, onClose, blurTarget }: AppMenuProps) {
   const panResponder = useMemo(
     () =>
       PanResponder.create({
-        onMoveShouldSetPanResponder: (_event, gesture) =>
-          gesture.dx < 0 && Math.abs(gesture.dx) > Math.abs(gesture.dy),
+        onMoveShouldSetPanResponder: (_event, gesture) => gesture.dx < 0 && Math.abs(gesture.dx) > Math.abs(gesture.dy),
         onPanResponderMove: (_event, gesture) => {
           progress.set(Math.min(1, Math.max(0, 1 + gesture.dx / panelWidth)));
         },
@@ -97,17 +124,23 @@ export function AppMenu({ isOpen, onClose, blurTarget }: AppMenuProps) {
           if (gesture.dx < -panelWidth * SWIPE_CLOSE_RATIO || gesture.vx < -SWIPE_CLOSE_VELOCITY) {
             onClose();
           } else {
-            progress.set(withSpring(1, SPRING));
+            progress.set(withTiming(1, SETTLE));
           }
         },
       }),
     [panelWidth, onClose, progress]
   );
 
-  const backdropStyle = useAnimatedStyle(() => ({ opacity: progress.get() }));
-  const panelStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: (progress.get() - 1) * panelWidth }],
+  const backdropStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(progress.get(), [0, SCRIM_LEAD], [0, 1], Extrapolation.CLAMP),
   }));
+  const panelStyle = useAnimatedStyle(() =>
+    reduceMotion
+      ? { opacity: progress.get(), transform: [{ translateX: 0 }] }
+      : { opacity: 1, transform: [{ translateX: (progress.get() - 1) * panelWidth }] }
+  );
+  // Contents slide in from about one line height to the left.
+  const revealDistance = lineHeight;
 
   function go(href: Href) {
     onClose();
@@ -154,65 +187,95 @@ export function AppMenu({ isOpen, onClose, blurTarget }: AppMenuProps) {
           },
           panelStyle,
         ]}>
-        <View style={styles.header}>
-          <ProfileAvatar profile={profile} scale={2.5} />
-          <ThemedText type="heading" numberOfLines={1}>
-            {profile?.display_name || 'Your account'}
-          </ThemedText>
-          <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-            {profile?.email}
-          </ThemedText>
-        </View>
+        <Reveal progress={progress} order={0} distance={revealDistance} reduceMotion={reduceMotion}>
+          <View style={styles.header}>
+            <ProfileAvatar profile={profile} scale={2.5} />
+            <ThemedText type="heading" numberOfLines={1}>
+              {profile?.display_name || 'Your account'}
+            </ThemedText>
+            <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+              {profile?.email}
+            </ThemedText>
+          </View>
+        </Reveal>
 
         <View style={styles.items}>
-          {ITEMS.map((item) => {
+          {ITEMS.map((item, index) => {
             const isActive = pathname === item.href;
             return (
-              <Pressable
+              <Reveal
                 key={item.label}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isActive }}
-                onPress={() => go(item.href)}
-                android_ripple={ripple}
-                style={[
-                  styles.item,
-                  itemStyle,
-                  isActive && { backgroundColor: theme.secondaryContainer },
-                ]}>
-                <SymbolView
-                  name={{ android: item.icon, web: item.icon }}
-                  size={lineHeight * ICON_RATIO}
-                  tintColor={isActive ? theme.onSecondaryContainer : theme.onSurfaceVariant}
-                />
-                <ThemedText
-                  type="smallBold"
-                  style={{ color: isActive ? theme.onSecondaryContainer : theme.onSurfaceVariant }}>
-                  {item.label}
-                </ThemedText>
-              </Pressable>
+                progress={progress}
+                order={index + 1}
+                distance={revealDistance}
+                reduceMotion={reduceMotion}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isActive }}
+                  onPress={() => go(item.href)}
+                  android_ripple={ripple}
+                  style={[styles.item, itemStyle, isActive && { backgroundColor: theme.secondaryContainer }]}>
+                  <SymbolView
+                    name={{ android: item.icon, web: item.icon }}
+                    size={lineHeight * ICON_RATIO}
+                    tintColor={isActive ? theme.onSecondaryContainer : theme.onSurfaceVariant}
+                  />
+                  <ThemedText
+                    type="smallBold"
+                    style={{ color: isActive ? theme.onSecondaryContainer : theme.onSurfaceVariant }}>
+                    {item.label}
+                  </ThemedText>
+                </Pressable>
+              </Reveal>
             );
           })}
         </View>
 
         {/* Sign out stays pinned to the bottom of the menu. */}
-        <View style={[styles.divider, { backgroundColor: theme.outlineVariant }]} />
-        <Pressable
-          accessibilityRole="button"
-          onPress={handleSignOut}
-          android_ripple={ripple}
-          style={[styles.item, itemStyle]}>
-          <SymbolView
-            name={{ android: 'logout', web: 'logout' }}
-            size={lineHeight * ICON_RATIO}
-            tintColor={theme.onSurfaceVariant}
-          />
-          <ThemedText type="smallBold" style={{ color: theme.onSurfaceVariant }}>
-            Sign out
-          </ThemedText>
-        </Pressable>
+        <Reveal progress={progress} order={ITEMS.length + 1} distance={revealDistance} reduceMotion={reduceMotion}>
+          <View style={[styles.divider, { backgroundColor: theme.outlineVariant }]} />
+          <Pressable
+            accessibilityRole="button"
+            onPress={handleSignOut}
+            android_ripple={ripple}
+            style={[styles.item, itemStyle]}>
+            <SymbolView
+              name={{ android: 'logout', web: 'logout' }}
+              size={lineHeight * ICON_RATIO}
+              tintColor={theme.onSurfaceVariant}
+            />
+            <ThemedText type="smallBold" style={{ color: theme.onSurfaceVariant }}>
+              Sign out
+            </ThemedText>
+          </Pressable>
+        </Reveal>
       </Animated.View>
     </View>
   );
+}
+
+type RevealProps = PropsWithChildren<{
+  // The menu's 0 (closed) to 1 (open) progress.
+  progress: SharedValue<number>;
+  // Position in the stagger: 0 arrives first.
+  order: number;
+  distance: number;
+  reduceMotion: boolean;
+}>;
+
+// Fades and slides one block of the menu in during its own slice of the
+// opening, so the contents settle after the panel itself. Driven by the
+// same progress as the panel, so it also tracks a swipe to close.
+function Reveal({ progress, order, distance, reduceMotion, children }: RevealProps) {
+  const style = useAnimatedStyle(() => {
+    const start = STAGGER_START + order * STAGGER_STEP;
+    const shown = interpolate(progress.get(), [start, start + STAGGER_WINDOW], [0, 1], Extrapolation.CLAMP);
+    return {
+      opacity: reduceMotion ? 1 : shown,
+      transform: [{ translateX: reduceMotion ? 0 : (shown - 1) * distance }],
+    };
+  });
+  return <Animated.View style={style}>{children}</Animated.View>;
 }
 
 const styles = StyleSheet.create({

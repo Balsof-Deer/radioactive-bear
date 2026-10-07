@@ -1,23 +1,24 @@
 import * as ImagePicker from 'expo-image-picker';
+import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BackButton } from '@/components/back-button';
+import { IconButton } from '@/components/icon-button';
+import { ListGroup } from '@/components/list-group';
 import { Loading } from '@/components/loading';
-import { PasswordChecklist } from '@/components/password-checklist';
 import { ProfileAvatar } from '@/components/profile-avatar';
 import { TagPicker } from '@/components/tag-picker';
 import { ThemedButton } from '@/components/themed-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedTextInput } from '@/components/themed-text-input';
 import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { redeemAdminInvite } from '@/lib/admin';
 import { useSession } from '@/lib/auth-context';
-import { isStrongPassword } from '@/lib/password-rules';
-import { changePassword, deleteMyAccount, removeAvatar, updateDisplayName, uploadAvatar } from '@/lib/profile';
+import { deleteMyAccount, removeAvatar, updateDisplayName, uploadAvatar } from '@/lib/profile';
 import { fetchMyPreferredTagIds, fetchTags, setMyPreferredTagIds, type Tag } from '@/lib/tags';
 import { useErrorState, useToast } from '@/lib/toast';
 import { useConfirm } from '@/lib/confirm';
@@ -25,7 +26,7 @@ import { useConfirm } from '@/lib/confirm';
 export default function ProfileScreen() {
   const confirm = useConfirm();
   const theme = useTheme();
-  const { session, profile, refreshProfile } = useSession();
+  const { session, profile, refreshProfile, signOut } = useSession();
   const { showSuccess } = useToast();
 
   const [isChangingPhoto, setIsChangingPhoto] = useState(false);
@@ -41,19 +42,12 @@ export default function ProfileScreen() {
   const [isSavingPreferences, setIsSavingPreferences] = useState(false);
   const [, setPreferencesError] = useErrorState();
 
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [, setPasswordError] = useErrorState();
-
   const [inviteCode, setInviteCode] = useState('');
   const [isRedeeming, setIsRedeeming] = useState(false);
   const [, setRedeemError] = useErrorState();
 
   const [isDeleting, setIsDeleting] = useState(false);
   const [, setDeleteError] = useErrorState();
-
 
   async function handlePickPhoto() {
     if (!session) return;
@@ -146,35 +140,6 @@ export default function ProfileScreen() {
     }
   }
 
-  async function handleChangePassword() {
-    if (!profile) return;
-    if (!currentPassword || !newPassword) {
-      setPasswordError('Enter your current password and a new one.');
-      return;
-    }
-    if (!isStrongPassword(newPassword)) {
-      setPasswordError('Choose a stronger new password: it needs everything in the list under it.');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setPasswordError('The new passwords do not match.');
-      return;
-    }
-    setPasswordError(null);
-    setIsChangingPassword(true);
-    try {
-      await changePassword(profile.email, currentPassword, newPassword);
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      showSuccess('Password changed.');
-    } catch (err) {
-      setPasswordError(err instanceof Error ? err.message : 'Could not change your password.');
-    } finally {
-      setIsChangingPassword(false);
-    }
-  }
-
   async function handleRedeem() {
     if (!inviteCode.trim()) {
       setRedeemError('Enter an invite code.');
@@ -225,7 +190,10 @@ export default function ProfileScreen() {
           keyboardDismissMode="on-drag">
           <View style={styles.headerRow}>
             <BackButton />
-            <ThemedText type="subtitle">Profile</ThemedText>
+            <ThemedText type="subtitle" style={styles.headerTitle}>
+              Profile
+            </ThemedText>
+            <IconButton icon="settings" label="Settings" onPress={() => router.push('/settings')} />
           </View>
 
           <View style={styles.identity}>
@@ -247,7 +215,12 @@ export default function ProfileScreen() {
                 disabled={isChangingPhoto}
               />
               {profile?.avatar_path && (
-                <ThemedButton label="Remove photo" variant="text" onPress={handleRemovePhoto} disabled={isChangingPhoto} />
+                <ThemedButton
+                  label="Remove photo"
+                  variant="text"
+                  onPress={handleRemovePhoto}
+                  disabled={isChangingPhoto}
+                />
               )}
             </View>
             <ThemedText type="label" themeColor="textSecondary">
@@ -255,7 +228,7 @@ export default function ProfileScreen() {
             </ThemedText>
           </View>
 
-          <View style={[styles.section, styles.divided, { borderColor: theme.outlineVariant }]}>
+          <View style={[styles.section, styles.card, { backgroundColor: theme.surfaceContainerLow }]}>
             <ThemedText type="heading">Display name</ThemedText>
             <ThemedTextInput
               placeholder="Display name"
@@ -269,7 +242,7 @@ export default function ProfileScreen() {
             </View>
           </View>
 
-          <View style={[styles.section, styles.divided, { borderColor: theme.outlineVariant }]}>
+          <View style={[styles.section, styles.card, { backgroundColor: theme.surfaceContainerLow }]}>
             <ThemedText type="heading">Preferred amenities</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
               Spots with these are sorted first on Home when &quot;Match my preferences&quot; is on.
@@ -289,45 +262,8 @@ export default function ProfileScreen() {
             </View>
           </View>
 
-          <View style={[styles.section, styles.divided, { borderColor: theme.outlineVariant }]}>
-            <ThemedText type="heading">Change password</ThemedText>
-            <ThemedTextInput
-              placeholder="Current password"
-              value={currentPassword}
-              onChangeText={setCurrentPassword}
-              secureTextEntry
-              textContentType="password"
-              accessibilityLabel="Current password"
-            />
-            <ThemedTextInput
-              placeholder="New password"
-              value={newPassword}
-              onChangeText={setNewPassword}
-              secureTextEntry
-              textContentType="newPassword"
-              accessibilityLabel="New password"
-            />
-            <PasswordChecklist password={newPassword} />
-            <ThemedTextInput
-              placeholder="Confirm new password"
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry
-              textContentType="newPassword"
-              accessibilityLabel="Confirm new password"
-            />
-            <View style={styles.actionRow}>
-              <ThemedButton
-                label="Change password"
-                onPress={handleChangePassword}
-                loading={isChangingPassword}
-                disabled={isChangingPassword || !isStrongPassword(newPassword)}
-              />
-            </View>
-          </View>
-
           {profile?.role !== 'admin' && (
-            <View style={[styles.section, styles.divided, { borderColor: theme.outlineVariant }]}>
+            <View style={[styles.section, styles.card, { backgroundColor: theme.surfaceContainerLow }]}>
               <ThemedText type="heading">Admin invite</ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
                 If an admin gave you an invite code, enter it here to get admin access.
@@ -350,11 +286,32 @@ export default function ProfileScreen() {
             </View>
           )}
 
-          <View style={[styles.section, styles.divided, { borderColor: theme.outlineVariant }]}>
+          <ListGroup
+            items={[
+              {
+                key: 'password',
+                icon: 'lock',
+                title: 'Change password',
+                subtitle: 'Needs your current password',
+                onPress: () => router.push('/change-password'),
+              },
+              {
+                key: 'settings',
+                icon: 'settings',
+                title: 'Settings',
+                subtitle: 'Appearance and about',
+                onPress: () => router.push('/settings'),
+              },
+            ]}
+          />
+
+          <ThemedButton label="Sign out" variant="secondary" onPress={signOut} />
+
+          <View style={[styles.section, styles.card, { backgroundColor: theme.surfaceContainerLow }]}>
             <ThemedText type="heading">Delete account</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              Permanently deletes your account and profile photo. Reviews and locations you added stay,
-              shown as from a deleted user.
+              Permanently deletes your account and profile photo. Reviews and locations you added stay, shown as from a
+              deleted user.
             </ThemedText>
             <View style={styles.startRow}>
               <ThemedButton
@@ -393,6 +350,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.two,
   },
+  headerTitle: {
+    flex: 1,
+  },
   identity: {
     alignItems: 'center',
     gap: Spacing.two,
@@ -412,10 +372,10 @@ const styles = StyleSheet.create({
   section: {
     gap: Spacing.two,
   },
-  // Hairline between sections, with room above the next heading.
-  divided: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    paddingTop: Spacing.four,
+  // Each settings group sits on its own tonal card.
+  card: {
+    borderRadius: Radius.lg,
+    padding: Spacing.three,
   },
   actionRow: {
     flexDirection: 'row',

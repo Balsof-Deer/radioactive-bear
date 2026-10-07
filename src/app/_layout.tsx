@@ -1,10 +1,15 @@
 import {
-  Epilogue_400Regular,
-  Epilogue_500Medium,
-  Epilogue_600SemiBold,
-  Epilogue_700Bold,
-  useFonts,
-} from '@expo-google-fonts/epilogue';
+  DMSans_400Regular,
+  DMSans_500Medium,
+  DMSans_600SemiBold,
+  DMSans_700Bold,
+  useFonts as useDMSans,
+} from '@expo-google-fonts/dm-sans';
+import {
+  SourceSerif4_400Regular,
+  SourceSerif4_600SemiBold,
+  useFonts as useSourceSerif,
+} from '@expo-google-fonts/source-serif-4';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StyleSheet, useColorScheme } from 'react-native';
@@ -60,16 +65,16 @@ function ThemedRoot() {
 function RootNavigator() {
   const { session, profile, isLoading } = useSession();
   const { isReady: isThemeReady } = useThemePreference();
-  // Epilogue weights used by the type scale (see Font in constants/theme).
-  const [fontsLoaded, fontError] = useFonts({
-    Epilogue_400Regular,
-    Epilogue_500Medium,
-    Epilogue_600SemiBold,
-    Epilogue_700Bold,
+  // The weights the type scale uses (see Font in constants/theme).
+  const [sansLoaded, sansError] = useDMSans({
+    DMSans_400Regular,
+    DMSans_500Medium,
+    DMSans_600SemiBold,
+    DMSans_700Bold,
   });
-  // If the font fails to load, carry on with the system font.
-  const areFontsSettled = fontsLoaded || !!fontError;
-
+  const [serifLoaded, serifError] = useSourceSerif({ SourceSerif4_400Regular, SourceSerif4_600SemiBold });
+  // If a font fails to load, carry on with the system font.
+  const areFontsSettled = (sansLoaded || !!sansError) && (serifLoaded || !!serifError);
   // Wait for the saved theme (so the app doesn't flash the wrong mode),
   // the initial session check, and if a session exists, its profile
   // (which carries the role that decides which stack to show).

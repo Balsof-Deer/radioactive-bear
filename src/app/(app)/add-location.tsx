@@ -1,22 +1,25 @@
 import { Camera, Map, type CameraRef } from '@maplibre/maplibre-react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, useColorScheme, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { IconButton } from '@/components/icon-button';
+import { LabeledField } from '@/components/labeled-field';
 import { TagPicker } from '@/components/tag-picker';
 import { ThemedButton } from '@/components/themed-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedTextInput } from '@/components/themed-text-input';
 import { ThemedView } from '@/components/themed-view';
-import { MAP_STYLE_URL } from '@/constants/map';
-import { Radius, Spacing } from '@/constants/theme';
+import { Elevation, MaxContentWidth, Radius, Spacing, Typography, withAlpha } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { addLocationPhotoRecord, createLocation } from '@/lib/locations';
 import { uploadLocationPhoto } from '@/lib/storage';
+import { useWarmMapStyle } from '@/lib/map-style';
 import { fetchTags, setLocationTags, type Tag } from '@/lib/tags';
 import { useErrorState } from '@/lib/toast';
 
@@ -25,6 +28,13 @@ const MAX_PHOTOS = 5;
 export default function AddLocationScreen() {
   const { lat, lng } = useLocalSearchParams<{ lat: string; lng: string }>();
   const theme = useTheme();
+  const isDark = useColorScheme() === 'dark';
+  // The same themed map as Explore, so it matches light and dark mode.
+  const mapStyle = useWarmMapStyle(theme, isDark);
+  const { fontScale } = useWindowDimensions();
+  const lineHeight = Typography.bodyMediumBold.lineHeight * fontScale;
+  const pinSize = lineHeight * 2.2;
+  const photoSize = lineHeight * 4.6;
   const cameraRef = useRef<CameraRef>(null);
 
   const [center, setCenter] = useState<[number, number]>([Number(lng), Number(lat)]);
@@ -37,7 +47,6 @@ export default function AddLocationScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [, setError] = useErrorState();
-  const [didSubmit, setDidSubmit] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -119,7 +128,8 @@ export default function AddLocationScreen() {
         await setLocationTags(locationId, selectedTagIds);
       }
 
-      setDidSubmit(true);
+      // The confirmation replaces this form, so Back doesn't return to it.
+      router.replace({ pathname: '/location-submitted', params: { id: locationId } });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Try again.');
     } finally {
@@ -127,25 +137,7 @@ export default function AddLocationScreen() {
     }
   }
 
-  if (didSubmit) {
-    return (
-      <ThemedView style={styles.container}>
-        <SafeAreaView style={styles.centeredContent}>
-          <ThemedText type="title" style={styles.title}>
-            Location submitted
-          </ThemedText>
-          <ThemedText themeColor="textSecondary" style={styles.centerText}>
-            It&apos;s visible to just you and admins for the next 24 hours. After that it opens up
-            for community review, and becomes fully approved once an admin signs off, or once the
-            community review period passes.
-          </ThemedText>
-          <View style={styles.doneButtonWrapper}>
-            <ThemedButton label="Done" onPress={() => router.back()} />
-          </View>
-        </SafeAreaView>
-      </ThemedView>
-    );
-  }
+  const canSubmit = name.trim().length > 0 && !isSubmitting;
 
   return (
     <ThemedView style={styles.container}>
@@ -154,89 +146,174 @@ export default function AddLocationScreen() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag">
-          <ThemedText type="subtitle">Add a location</ThemedText>
+          <View style={styles.header}>
+            <IconButton icon="close" label="Cancel" onPress={() => router.back()} />
+            <ThemedText type="label" themeColor="tertiary" style={styles.eyebrow}>
+              NEW SPOT
+            </ThemedText>
+          </View>
 
-          <ThemedText themeColor="textSecondary" type="small">
-            Pan and zoom to line the pin up exactly, or use your current location.
-          </ThemedText>
+          <View style={styles.intro}>
+            <ThemedText type="title" accessibilityRole="header">
+              Add a location
+            </ThemedText>
+            <ThemedText themeColor="textSecondary" type="small">
+              Pan and zoom to line the pin up exactly, or use your current location.
+            </ThemedText>
+          </View>
 
-          <ThemedView style={styles.mapPreview}>
+          <View style={[styles.mapPreview, { borderColor: theme.outlineVariant }]}>
             <Map
-              mapStyle={MAP_STYLE_URL}
+              mapStyle={mapStyle}
               style={styles.map}
               onRegionDidChange={(event) => setCenter(event.nativeEvent.center)}>
               <Camera ref={cameraRef} initialViewState={{ center, zoom: 17 }} />
             </Map>
 
+            {/* The pin's tip marks the centre of the map. */}
             <View pointerEvents="none" style={styles.centerPinWrapper}>
-              <View
-                style={[styles.pin, { backgroundColor: theme.tint, borderColor: theme.background }]}
-              />
+              <View style={{ marginBottom: pinSize }}>
+                <SymbolView
+                  name={{ android: 'location_on', web: 'location_on' }}
+                  size={pinSize}
+                  tintColor={theme.primary}
+                />
+              </View>
             </View>
 
             <Pressable
+              accessibilityRole="button"
               onPress={useCurrentLocation}
               disabled={isLocating}
-              style={[styles.locateButton, { backgroundColor: theme.background }]}>
-              <ThemedText type="smallBold">{isLocating ? '...' : 'Use current location'}</ThemedText>
+              android_ripple={{ color: withAlpha(theme.onSurface, 0.1) }}
+              style={[
+                styles.locateButton,
+                {
+                  backgroundColor: theme.surface,
+                  minHeight: lineHeight * 2.2,
+                  paddingHorizontal: lineHeight * 0.8,
+                },
+              ]}>
+              <SymbolView
+                name={{ android: 'my_location', web: 'my_location' }}
+                size={lineHeight}
+                tintColor={theme.onSurface}
+              />
+              <ThemedText type="smallBold">{isLocating ? 'Finding you…' : 'Use current location'}</ThemedText>
             </Pressable>
-          </ThemedView>
+          </View>
 
-          <View style={styles.content}>
-            <ThemedView style={styles.fields}>
-              <ThemedTextInput placeholder="Name" value={name} onChangeText={setName} />
+          <View style={styles.fields}>
+            <LabeledField label="Name">
               <ThemedTextInput
-                placeholder="Description (optional)"
+                placeholder="What's it called?"
+                value={name}
+                onChangeText={setName}
+                autoCapitalize="words"
+                accessibilityLabel="Name"
+              />
+            </LabeledField>
+            <LabeledField label="Description (optional)">
+              <ThemedTextInput
+                placeholder="Where to sit, when it's busy, anything worth knowing"
                 value={description}
                 onChangeText={setDescription}
                 multiline
-                style={styles.multiline}
+                accessibilityLabel="Description"
+                style={[styles.multiline, { minHeight: lineHeight * 5 }]}
               />
-              <ThemedTextInput placeholder="Address (optional)" value={address} onChangeText={setAddress} />
-            </ThemedView>
-
-            {tags.length > 0 && (
-              <ThemedView style={styles.tagsSection}>
-                <ThemedText type="smallBold">Amenities</ThemedText>
-                <TagPicker tags={tags} selectedTagIds={selectedTagIds} onToggle={toggleTag} />
-              </ThemedView>
-            )}
-
-            <ThemedView style={styles.photosSection}>
-              <ThemedText type="smallBold">
-                Photos ({photos.length}/{MAX_PHOTOS})
-              </ThemedText>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.photoRow}>
-                {photos.map((uri) => (
-                  <Pressable key={uri} onPress={() => removePhoto(uri)}>
-                    <Image source={{ uri }} style={styles.photo} />
-                    <ThemedView type="backgroundElement" style={styles.removeBadge}>
-                      <ThemedText type="small">Remove</ThemedText>
-                    </ThemedView>
-                  </Pressable>
-                ))}
-                {photos.length < MAX_PHOTOS && (
-                  <Pressable
-                    onPress={pickPhotos}
-                    style={[styles.photo, styles.addPhotoButton, { borderColor: theme.backgroundSelected }]}>
-                    <ThemedText type="smallBold">+ Add</ThemedText>
-                  </Pressable>
-                )}
-              </ScrollView>
-            </ThemedView>
-
-
-            <ThemedButton label="Submit" onPress={handleSubmit} loading={isSubmitting} disabled={isSubmitting} />
-            <ThemedButton
-              label="Cancel"
-              variant="secondary"
-              onPress={() => router.back()}
-              disabled={isSubmitting}
-            />
+            </LabeledField>
+            <LabeledField label="Address (optional)">
+              <ThemedTextInput
+                placeholder="Street and number"
+                value={address}
+                onChangeText={setAddress}
+                autoCapitalize="words"
+                accessibilityLabel="Address"
+              />
+            </LabeledField>
           </View>
+
+          {tags.length > 0 && (
+            <View style={styles.section}>
+              <ThemedText type="heading">Amenities</ThemedText>
+              <TagPicker tags={tags} selectedTagIds={selectedTagIds} onToggle={toggleTag} />
+            </View>
+          )}
+
+          <View style={styles.section}>
+            <View style={styles.sectionTitle}>
+              <ThemedText type="heading">Photos</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                {photos.length} of {MAX_PHOTOS}
+              </ThemedText>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoRow}>
+              {photos.map((uri, index) => (
+                <View key={uri}>
+                  <Image
+                    source={{ uri }}
+                    style={[styles.photo, { width: photoSize, height: photoSize }]}
+                    accessibilityLabel={`Photo ${index + 1}`}
+                  />
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remove photo ${index + 1}`}
+                    onPress={() => removePhoto(uri)}
+                    hitSlop={8}
+                    style={[
+                      styles.removeButton,
+                      {
+                        width: lineHeight * 1.5,
+                        height: lineHeight * 1.5,
+                        backgroundColor: theme.inverseSurface,
+                        borderColor: theme.surface,
+                      },
+                    ]}>
+                    <SymbolView
+                      name={{ android: 'close', web: 'close' }}
+                      size={lineHeight * 0.8}
+                      tintColor={theme.inverseOnSurface}
+                    />
+                  </Pressable>
+                </View>
+              ))}
+              {photos.length < MAX_PHOTOS && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Add photos"
+                  onPress={pickPhotos}
+                  android_ripple={{ color: withAlpha(theme.onSurface, 0.1) }}
+                  style={[
+                    styles.photo,
+                    styles.addPhotoButton,
+                    { width: photoSize, height: photoSize, backgroundColor: theme.surfaceContainerHigh },
+                  ]}>
+                  <SymbolView
+                    name={{ android: 'add_photo_alternate', web: 'add_photo_alternate' }}
+                    size={lineHeight * 1.4}
+                    tintColor={theme.onSurfaceVariant}
+                  />
+                  <ThemedText type="label" themeColor="textSecondary">
+                    Add
+                  </ThemedText>
+                </Pressable>
+              )}
+            </ScrollView>
+          </View>
+
+          <View style={[styles.note, { backgroundColor: theme.surfaceContainerHigh }]}>
+            <SymbolView
+              name={{ android: 'visibility_off', web: 'visibility_off' }}
+              size={lineHeight}
+              tintColor={theme.onSurfaceVariant}
+            />
+            <ThemedText type="small" themeColor="textSecondary" style={styles.noteText}>
+              Only you and admins can see it for the first 24 hours. Then other students can see and review it.
+            </ThemedText>
+          </View>
+
+          <ThemedButton label="Submit" onPress={handleSubmit} loading={isSubmitting} disabled={!canSubmit} />
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
@@ -244,9 +321,6 @@ export default function AddLocationScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: {
-    width: '100%',
-  },
   container: {
     flex: 1,
   },
@@ -254,30 +328,33 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: Spacing.four,
-    gap: Spacing.three,
-  },
-  centeredContent: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.three,
-  },
-  title: {
-    fontSize: 28,
-    lineHeight: 34,
-    textAlign: 'center',
-  },
-  centerText: {
-    textAlign: 'center',
-  },
-  doneButtonWrapper: {
     width: '100%',
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.two,
+    paddingBottom: Spacing.five,
+    gap: Spacing.four,
   },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    // Lines the icon's glyph up with the content edge below.
+    marginLeft: -Spacing.two,
+  },
+  eyebrow: {
+    letterSpacing: 1.2,
+  },
+  intro: {
+    gap: Spacing.one,
+    marginTop: -Spacing.two,
+  },
+  // A wide map preview whose height follows its width.
   mapPreview: {
-    height: 280,
-    borderRadius: Radius.lg,
+    aspectRatio: 1.4,
+    borderRadius: Radius.xl,
+    borderWidth: 1,
     overflow: 'hidden',
   },
   map: {
@@ -288,55 +365,62 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pin: {
-    width: Spacing.three,
-    height: Spacing.three,
-    borderRadius: Spacing.three,
-    borderWidth: 2,
-  },
   locateButton: {
     position: 'absolute',
-    right: Spacing.two,
-    bottom: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    borderRadius: Spacing.five,
+    left: Spacing.two + Spacing.one,
+    bottom: Spacing.two + Spacing.one,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    borderRadius: Radius.full,
+    overflow: 'hidden',
+    boxShadow: Elevation.level2,
   },
   fields: {
-    gap: Spacing.two,
+    gap: Spacing.three,
   },
   multiline: {
-    minHeight: 80,
     textAlignVertical: 'top',
   },
-  tagsSection: {
-    gap: Spacing.two,
+  section: {
+    gap: Spacing.two + Spacing.one,
   },
-  photosSection: {
-    gap: Spacing.two,
+  sectionTitle: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
   },
   photoRow: {
     gap: Spacing.two,
+    // Room for the remove buttons, which overhang each photo's corner.
+    paddingTop: Spacing.two,
+    paddingRight: Spacing.two,
   },
   photo: {
-    width: 88,
-    height: 88,
-    borderRadius: Spacing.two,
+    borderRadius: Radius.md,
   },
   addPhotoButton: {
-    borderWidth: 1,
-    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.one,
+    overflow: 'hidden',
+  },
+  removeButton: {
+    position: 'absolute',
+    top: -Spacing.two,
+    right: -Spacing.two,
+    borderRadius: Radius.full,
+    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  removeBadge: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    paddingVertical: Spacing.half,
-    borderBottomLeftRadius: Spacing.two,
-    borderBottomRightRadius: Spacing.two,
+  note: {
+    flexDirection: 'row',
+    gap: Spacing.two + Spacing.one,
+    padding: Spacing.three,
+    borderRadius: Radius.md,
+  },
+  noteText: {
+    flex: 1,
   },
 });

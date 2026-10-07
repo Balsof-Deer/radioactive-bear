@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Typography } from '@/constants/theme';
+import { Font, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import type { Profile } from '@/lib/auth-context';
 import { getAvatarUrl } from '@/lib/profile';
@@ -15,8 +15,8 @@ type ProfileAvatarProps = {
   scale?: number;
 };
 
-// The profile photo, or the first letter of the name/email on a tonal
-// circle when there's no photo.
+// The profile photo, or the first letter of the name/email in the serif on
+// an accent circle when there's no photo.
 export function ProfileAvatar({ profile, scale = 2 }: ProfileAvatarProps) {
   const theme = useTheme();
   const { fontScale } = useWindowDimensions();
@@ -45,13 +45,13 @@ export function ProfileAvatar({ profile, scale = 2 }: ProfileAvatarProps) {
   }
 
   return (
-    <View style={[styles.fallback, circle, { backgroundColor: theme.primaryContainer }]}>
+    <View style={[styles.fallback, circle, { backgroundColor: theme.accent }]}>
       <ThemedText
         style={{
-          color: theme.onPrimaryContainer,
+          color: theme.onAccent,
+          fontFamily: Font.serifSemiBold,
           fontSize: diameter * 0.45,
           lineHeight: diameter * 0.6,
-          fontWeight: 600,
         }}>
         {initial}
       </ThemedText>

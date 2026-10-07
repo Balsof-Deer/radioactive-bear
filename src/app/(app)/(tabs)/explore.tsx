@@ -15,8 +15,9 @@ import { ThemedButton } from '@/components/themed-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { DEFAULT_RADIUS_KM, STREET_ZOOM } from '@/constants/map';
-import { BottomTabInset, Elevation, Radius, Spacing, Typography } from '@/constants/theme';
+import { Elevation, Radius, Spacing, Typography } from '@/constants/theme';
 import { useNearbyLocations } from '@/hooks/use-nearby-locations';
+import { useTabBarInset } from '@/hooks/use-tab-bar-inset';
 import { useTheme } from '@/hooks/use-theme';
 import { useAppMenu } from '@/lib/app-menu';
 import { distanceInMetres } from '@/lib/geo';
@@ -29,6 +30,7 @@ const LAST_KNOWN_MAX_AGE_MS = 5 * 60 * 1000;
 const RECENTER_CORRECTION_METRES = 25;
 
 export default function ExploreScreen() {
+  const tabBarInset = useTabBarInset();
   const theme = useTheme();
   const isDark = useColorScheme() === 'dark';
   const { openMenu } = useAppMenu();
@@ -179,7 +181,7 @@ export default function ExploreScreen() {
 
         </View>
 
-        <View style={styles.bottomSlot} pointerEvents="box-none">
+        <View style={[styles.bottomSlot, { paddingBottom: tabBarInset + Spacing.two }]} pointerEvents="box-none">
           <View style={styles.controls} pointerEvents="box-none">
             <IconButton icon="my_location" label="Show my location" onPress={recenter} variant="floating" />
             <IconButton
@@ -252,7 +254,6 @@ const styles = StyleSheet.create({
   },
   bottomSlot: {
     paddingHorizontal: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.two,
     gap: Spacing.three,
   },
   // Map controls sit on the right edge, just above the spot sheet.

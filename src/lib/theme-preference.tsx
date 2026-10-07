@@ -2,21 +2,31 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, use, useEffect, useState, type PropsWithChildren } from 'react';
 import { Appearance, useColorScheme } from 'react-native';
 
-import { Palettes, type ThemePalette } from '@/constants/theme';
+import {
+  ColorSchemes,
+  DEFAULT_COLOR_SCHEME,
+  Palettes,
+  type ColorSchemeName,
+  type ThemePalette,
+} from '@/constants/theme';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 
 const MODE_KEY = 'themeMode';
-// No longer used: the accent picker was removed in the Warm Academic
-// redesign. Cleared once so a stale value doesn't linger.
+const COLOR_SCHEME_KEY = 'themeColorScheme';
+// No longer used: the old free accent picker. Cleared once so a stale value
+// doesn't linger.
 const LEGACY_ACCENT_KEY = 'themeAccent';
 
 type ThemePreferenceValue = {
   mode: ThemeMode;
-  // The fixed brand palette for the current light/dark mode.
+  // The chosen primary/accent pair (Settings > Appearance).
+  colorScheme: ColorSchemeName;
+  // That scheme's palette for the current light/dark mode.
   palette: ThemePalette;
   isReady: boolean;
   setMode: (mode: ThemeMode) => void;
+  setColorScheme: (colorScheme: ColorSchemeName) => void;
 };
 
 const ThemePreferenceContext = createContext<ThemePreferenceValue | null>(null);
@@ -32,6 +42,10 @@ function isThemeMode(value: string | null): value is ThemeMode {
   return value === 'system' || value === 'light' || value === 'dark';
 }
 
+function isColorSchemeName(value: string | null): value is ColorSchemeName {
+  return value !== null && value in ColorSchemes;
+}
+
 export function useThemePreference() {
   const value = use(ThemePreferenceContext);
   if (!value) {
@@ -42,18 +56,23 @@ export function useThemePreference() {
 
 export function ThemePreferenceProvider({ children }: PropsWithChildren) {
   const [mode, setModeState] = useState<ThemeMode>('system');
+  const [colorScheme, setColorSchemeState] = useState<ColorSchemeName>(DEFAULT_COLOR_SCHEME);
   const [isReady, setIsReady] = useState(false);
-  const palette = useColorScheme() === 'dark' ? Palettes.dark : Palettes.light;
+  const palettes = Palettes[colorScheme];
+  const palette = useColorScheme() === 'dark' ? palettes.dark : palettes.light;
 
   useEffect(() => {
     let cancelled = false;
 
-    AsyncStorage.getItem(MODE_KEY)
-      .then((storedMode) => {
+    Promise.all([AsyncStorage.getItem(MODE_KEY), AsyncStorage.getItem(COLOR_SCHEME_KEY)])
+      .then(([storedMode, storedColorScheme]) => {
         if (cancelled) return;
         if (isThemeMode(storedMode)) {
           setModeState(storedMode);
           applyMode(storedMode);
+        }
+        if (isColorSchemeName(storedColorScheme)) {
+          setColorSchemeState(storedColorScheme);
         }
       })
       .catch(() => undefined)
@@ -69,12 +88,17 @@ export function ThemePreferenceProvider({ children }: PropsWithChildren) {
 
   const value: ThemePreferenceValue = {
     mode,
+    colorScheme,
     palette,
     isReady,
     setMode(nextMode) {
       setModeState(nextMode);
       applyMode(nextMode);
       AsyncStorage.setItem(MODE_KEY, nextMode).catch(() => undefined);
+    },
+    setColorScheme(nextColorScheme) {
+      setColorSchemeState(nextColorScheme);
+      AsyncStorage.setItem(COLOR_SCHEME_KEY, nextColorScheme).catch(() => undefined);
     },
   };
 
